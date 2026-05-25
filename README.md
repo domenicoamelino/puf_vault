@@ -1,156 +1,154 @@
-# PUF Vault Arduino/Raspberry Prototype
+# PUF Vault
 
-This package contains a complete first implementation of the simplified PUF Vault architecture:
+PUF Vault is a lightweight password vault prototype based on a Physical Unclonable Function (PUF) running on Arduino hardware.
 
-```text
-Browser client
-  -> HTTPS/TLS
-Raspberry Pi Java server
-  -> UART serial
-Arduino PUF device
-```
+The system consists of:
 
-## Architecture
+- A web client (HTML/CSS/JS)
+- A Java Spring Boot server running on Mac/Raspberry Pi
+- An Arduino-based PUF device communicating over UART
 
-### Client
+The password is never stored permanently.
+Passwords are deterministically regenerated from:
 
-Located in `client/`.
+- SRAM startup entropy (PUF)
+- Service identifier
+- Rotation version
+- Internal policy metadata
 
-The browser client:
+The server encrypts the generated password using the user's RSA public key before returning it to the browser.
 
-- logs in with an existing username/password
-- generates an RSA-OAEP public/private key pair locally
-- sends the public key to the server during login
-- registers services
-- requests generated passwords
-- decrypts the encrypted password returned by the server
-- copies the decrypted password to the clipboard
+---
 
-The private key stays in browser memory for this prototype.
+# Architecture
 
-### Java server
+Client Browser
+↓ HTTPS/TLS
+Spring Boot Server
+↓ UART Serial
+Arduino PUF Device
 
-Located in `server/`.
+---
 
-The Spring Boot server:
+# Main Features
 
-- exposes REST APIs under `/api`
-- authenticates existing users from `application.yml`
-- issues a simple HMAC-signed bearer token
-- communicates with the Arduino via UART
-- claims a user slot on the Arduino
-- registers service slots
-- asks Arduino to generate/rotate passwords
-- encrypts returned plaintext passwords using the user's browser-generated RSA public key
+- Password generation without storing plaintext passwords
+- RSA client-side encryption/decryption
+- UART monitoring dashboard
+- Device diagnostics
+- Automatic server/device connection indicators
+- Device repower detection
+- Password rotation
+- Service deletion
+- Live UART transcript
 
-### Arduino device
+---
 
-Located in `arduino/PufVaultDevice/`.
+# Current Device Model
 
-The Arduino device:
+The Arduino firmware currently supports:
 
-- stores 2 users
-- stores 5 service slots per user
-- supports only `DEFAULT_16`
-- captures SRAM startup data as PUF material
-- stores per-user salt/helper data and service metadata in EEPROM
-- derives deterministic 16-character passwords
-- rotates passwords by repeatedly hashing the original digest via a version counter
+- 1 fixed user
+- 6 service slots
+- Delete individual service slot
+- Password rotation versioning
+- UART ping/keep-alive
 
-## Default server login
+When a service is deleted:
 
-Edit `server/src/main/resources/application.yml`.
+- EEPROM metadata is updated
+- Device enters POWER_CYCLE_REQUIRED state
+- Dashboard shows:
+  Connected but needs Repower
 
-Default demo user:
+---
 
-```text
-username: demo
-password: demo123
-userId: user001
-```
+# Running the System
 
-## UART protocol
+## 1. Flash Arduino
 
-Commands supported by Arduino:
+Follow:
 
-```text
-PING
-STATUS
-CAPABILITY
-LIST_USERS
-CREATE_USER <userId>
-LIST_SERVICES <userId>
-ADD_SERVICE <userId> <serviceId> DEFAULT_16
-GENERATE_PASSWORD <userId> <serviceId>
-ROTATE_SERVICE <userId> <serviceId>
-WIPE_ALL
-RESET_DEVICE
-```
+arduino/README.md
 
-## Run server
+## 2. Start Server
 
-```bash
-cd server
-mvn spring-boot:run
-```
+Follow:
 
-Adjust the serial port in `application.yml`, for example:
+server/README.md
 
-```yaml
-pufvault:
-  serial:
-    port: "/dev/ttyACM0"
-    baud: 115200
-```
+## 3. Start Client
 
-Common Raspberry Pi/Arduino ports:
+Follow:
 
-```text
-/dev/ttyACM0
-/dev/ttyUSB0
-```
+client/README.md
 
-## Run client
+---
 
-Open `client/index.html` with a local web server, for example:
+# Security Notes
 
-```bash
-cd client
-python3 -m http.server 5500
-```
+This is currently a prototype implementation.
 
-Then open:
+Security assumptions:
 
-```text
-http://localhost:5500
-```
-
-Use API endpoint:
-
-```text
-http://localhost:8080/api
-```
-
-## Important security notes
-
-This is a working prototype, not a production-ready password vault.
+- HTTPS/TLS between browser and server
+- UART connection considered trusted
+- Password encrypted with client RSA public key
+- Password never persisted server-side
 
 Current simplifications:
 
-- UART is trusted and plaintext between Raspberry Pi and Arduino.
-- Password encryption happens on the Raspberry Pi, not on the Arduino.
-- Helper data is a lightweight prototype structure, not a full ECC fuzzy extractor.
-- Browser private key is kept in memory only and is lost on page refresh.
-- Login uses demo HMAC tokens, not hardened production auth.
-- Password is briefly visible on Raspberry Pi server memory.
+- No fuzzy extractor ECC
+- No helper data
+- No mutual authentication
+- No secure element
 
-Next hardening steps:
+---
 
-- replace the helper-data model with a real fuzzy extractor/ECC design
-- use encrypted/authenticated UART packets
-- store users in a real database
-- hash server login passwords with Argon2/bcrypt
-- persist browser private key securely or use WebAuthn/passkeys
-- add device challenge/response
-- add proper HTTPS certificate configuration on Raspberry Pi
+# UART Monitoring
 
+The dashboard exposes:
+
+- Live UART messages
+- Sender/receiver direction
+- Device diagnostics
+- Serial reconnection status
+- Port information
+
+Example:
+
+Server → Arduino
+ADD_SERVICE github.com
+
+Arduino → Server
+OK SERVICE_ADDED SLOT=0
+
+---
+
+# Device Status States
+
+## Green
+
+Device connected and operational.
+
+## Amber
+
+Device connected but requires repower.
+
+## Red
+
+Device disconnected or not responding.
+
+---
+
+# Future Work
+
+Planned future evolutions:
+
+- Arduino Nano ESP32
+- Bluetooth/NFC password keychain
+- Mobile autofill integration
+- Secure challenge-response
+- True fuzzy extractor
+- Secure enclave integration
+- Multi-device synchronization
