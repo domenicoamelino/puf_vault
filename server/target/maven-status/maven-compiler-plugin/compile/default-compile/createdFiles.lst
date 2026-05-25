@@ -1,6 +1,7 @@
 com/pufvault/auth/CorsConfig$1.class
 com/pufvault/auth/UserConfig$Serial.class
 com/pufvault/controller/AuthController.class
+com/pufvault/auth/AuthService$AuthenticatedUser.class
 com/pufvault/dto/Dto$AddServiceRequest.class
 com/pufvault/controller/HealthController.class
 com/pufvault/device/SerialDeviceService.class
@@ -19,4 +20,3 @@ com/pufvault/controller/DeviceController.class
 com/pufvault/auth/CorsConfig.class
 com/pufvault/auth/PublicKeyStore.class
 com/pufvault/controller/ServiceController.class
-com/pufvault/auth/AuthService$AuthUser.class

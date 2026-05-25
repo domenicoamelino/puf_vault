@@ -1,15 +1,49 @@
 package com.pufvault.auth;
 
-import org.springframework.stereotype.Service;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Service
+import org.springframework.stereotype.Component;
+
+@Component
 public class PublicKeyStore {
-    private final ConcurrentHashMap<String, String> keys = new ConcurrentHashMap<>();
-    public void put(String userId, String publicKeyBase64Spki) { keys.put(userId, publicKeyBase64Spki); }
+
+    private final Map<String, String> publicKeysByUserId =
+            new ConcurrentHashMap<>();
+
+    public void save(
+            String userId,
+            String publicKey
+    ) {
+        publicKeysByUserId.put(
+                userId,
+                publicKey
+        );
+    }
+
     public String require(String userId) {
-        String key = keys.get(userId);
-        if (key == null || key.isBlank()) throw new RuntimeException("No public key registered for current session");
+        String key =
+                publicKeysByUserId.get(userId);
+
+        if (key == null || key.isBlank()) {
+            throw new RuntimeException(
+                    "Missing public key for user "
+                            + userId
+            );
+        }
+
         return key;
+    }
+
+    public boolean exists(String userId) {
+        return publicKeysByUserId.containsKey(userId);
+    }
+
+    public void remove(String userId) {
+        publicKeysByUserId.remove(userId);
+    }
+
+    public int size() {
+        return publicKeysByUserId.size();
     }
 }

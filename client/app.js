@@ -1,5 +1,7 @@
 let token = null;
 let userId = null;
+let maxSlots = 0;
+let animationEnabled = false;
 
 let privateKey = null;
 let publicKeyBase64 = null;
@@ -10,7 +12,6 @@ const $ = (id) =>
   document.getElementById(id);
 
 const log = (msg) => {
-
   $('log').textContent =
     `${new Date().toLocaleTimeString()} ${msg}\n`
     + $('log').textContent;
@@ -19,35 +20,20 @@ const log = (msg) => {
 const api = (path) =>
   `${$('endpoint').value.replace(/\/$/, '')}${path}`;
 
-function setLight(
-  lightId,
-  textId,
-  state,
-  text
-) {
+const sleep = (ms) =>
+  new Promise(resolve => setTimeout(resolve, ms));
 
-  const light =
-    $(lightId);
+function setLight(lightId, textId, state, text) {
+  const light = $(lightId);
+  const label = $(textId);
 
-  const label =
-    $(textId);
-
-  light.classList.remove(
-    'green',
-    'red',
-    'amber'
-  );
+  light.classList.remove('green', 'red', 'amber');
 
   if (state === 'ok') {
-
     light.classList.add('green');
-
   } else if (state === 'warning') {
-
     light.classList.add('amber');
-
   } else {
-
     light.classList.add('red');
   }
 
@@ -55,13 +41,8 @@ function setLight(
 }
 
 async function checkServerConnection() {
-
   try {
-
-    const res =
-      await fetch(
-        api('/health')
-      );
+    const res = await fetch(api('/health'));
 
     if (!res.ok) {
       throw new Error();
@@ -75,9 +56,7 @@ async function checkServerConnection() {
     );
 
     return true;
-
   } catch (e) {
-
     setLight(
       'serverLight',
       'serverStatusText',
@@ -90,18 +69,10 @@ async function checkServerConnection() {
 }
 
 async function checkPufDeviceConnection() {
-
   try {
+    const response = await request('/device/status');
 
-    const response =
-      await request(
-        '/device/status'
-      );
-
-    if (
-      response.response === 'OK READY'
-    ) {
-
+    if (response.response === 'OK READY') {
       setLight(
         'deviceLight',
         'deviceStatusText',
@@ -112,11 +83,7 @@ async function checkPufDeviceConnection() {
       return true;
     }
 
-    if (
-      response.response ===
-      'NOK POWER_CYCLE_REQUIRED'
-    ) {
-
+    if (response.response === 'NOK POWER_CYCLE_REQUIRED') {
       setLight(
         'deviceLight',
         'deviceStatusText',
@@ -135,9 +102,7 @@ async function checkPufDeviceConnection() {
     );
 
     return true;
-
   } catch (e) {
-
     setLight(
       'deviceLight',
       'deviceStatusText',
@@ -150,16 +115,11 @@ async function checkPufDeviceConnection() {
 }
 
 async function refreshConnectionStatus() {
-
-  const serverOk =
-    await checkServerConnection();
+  const serverOk = await checkServerConnection();
 
   if (serverOk && token) {
-
     await checkPufDeviceConnection();
-
   } else {
-
     setLight(
       'deviceLight',
       'deviceStatusText',
@@ -170,7 +130,6 @@ async function refreshConnectionStatus() {
 }
 
 async function generateClientKeys() {
-
   const pair =
     await crypto.subtle.generateKey(
       {
@@ -199,10 +158,7 @@ async function generateClientKeys() {
   );
 }
 
-async function decryptPassword(
-  encryptedBase64
-) {
-
+async function decryptPassword(encryptedBase64) {
   const bytes =
     Uint8Array.from(
       atob(encryptedBase64),
@@ -220,11 +176,7 @@ async function decryptPassword(
     .decode(decrypted);
 }
 
-async function request(
-  path,
-  options = {}
-) {
-
+async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {})
@@ -246,7 +198,6 @@ async function request(
       .catch(() => ({}));
 
   if (!res.ok) {
-
     throw new Error(
       body.error || `HTTP ${res.status}`
     );
@@ -256,13 +207,11 @@ async function request(
 }
 
 function parseServices(lines) {
-
   return (lines || [])
     .filter(line =>
       line.includes('ACTIVE')
     )
     .map(line => {
-
       const parts =
         line.split(' ');
 
@@ -273,11 +222,7 @@ function parseServices(lines) {
     });
 }
 
-function showPassword(
-  serviceId,
-  password
-) {
-
+function showPassword(serviceId, password) {
   const target =
     document.querySelector(
       `[data-password-for="${serviceId}"]`
@@ -288,9 +233,7 @@ function showPassword(
   }
 
   target.textContent = password;
-
   target.classList.remove('hidden');
-
   target.dataset.password = password;
 }
 
@@ -300,7 +243,6 @@ function capitalize(s) {
 }
 
 function switchTab(tab) {
-
   $('servicesTab').classList.add('hidden');
   $('diagnosticsTab').classList.add('hidden');
   $('uartTab').classList.add('hidden');
@@ -330,8 +272,46 @@ $('tabUart').onclick =
 $('tabLogs').onclick =
   () => switchTab('logs');
 
-async function refreshServices() {
+async function playFlow(steps) {
+  if (!animationEnabled) {
+    return;
+  }
 
+  const packet = $('packet');
+  const caption = $('animationCaption');
+
+  const positions = {
+    client: '9%',
+    server: '48%',
+    device: '86%'
+  };
+
+  for (const step of steps) {
+    packet.classList.remove('encrypted', 'plain');
+    packet.classList.add(step.encrypted ? 'encrypted' : 'plain');
+    packet.textContent = step.encrypted ? '🔒' : '📦';
+
+    packet.style.left = positions[step.from];
+    packet.style.opacity = '1';
+
+    caption.textContent =
+      `${step.label} — ${step.encrypted ? 'encrypted' : 'plain/trusted local'}`;
+
+    await sleep(120);
+
+    packet.style.left = positions[step.to];
+
+    await sleep(950);
+
+    packet.style.opacity = '0';
+
+    await sleep(250);
+  }
+
+  caption.textContent = '';
+}
+
+async function refreshServices() {
   const data =
     await request('/services');
 
@@ -344,15 +324,22 @@ async function refreshServices() {
   box.innerHTML = '';
 
   if (services.length === 0) {
-
     box.innerHTML =
-      '<p class="muted">No services registered.</p>';
+      `<p class="muted">No services registered. ${services.length}/${maxSlots} slots used.</p>`;
 
     return;
   }
 
-  for (const svc of services) {
+  const summary =
+    document.createElement('p');
 
+  summary.className = 'muted';
+  summary.textContent =
+    `${services.length}/${maxSlots} slots used`;
+
+  box.appendChild(summary);
+
+  for (const svc of services) {
     const row =
       document.createElement('div');
 
@@ -394,7 +381,6 @@ async function refreshServices() {
 }
 
 async function refreshDiagnostics() {
-
   const data =
     await request('/device/diagnostics');
 
@@ -403,7 +389,6 @@ async function refreshDiagnostics() {
 }
 
 async function refreshUartMonitor() {
-
   const data =
     await request('/device/uart');
 
@@ -413,7 +398,6 @@ async function refreshUartMonitor() {
   box.innerHTML = '';
 
   for (const entry of data.entries) {
-
     const div =
       document.createElement('div');
 
@@ -441,22 +425,26 @@ async function refreshUartMonitor() {
 
 $('loginBtn').onclick =
   async () => {
-
     try {
-
       await generateClientKeys();
+
+      await playFlow([
+        {
+          from: 'client',
+          to: 'server',
+          label: 'Login request over HTTPS',
+          encrypted: true
+        }
+      ]);
 
       const data =
         await request('/login', {
           method: 'POST',
-
           body: JSON.stringify({
             username:
               $('username').value,
-
             password:
               $('password').value,
-
             publicKey:
               publicKeyBase64
           })
@@ -464,15 +452,20 @@ $('loginBtn').onclick =
 
       token = data.token;
       userId = data.userId;
+      maxSlots = data.maxSlots;
+      animationEnabled = data.animationEnabled === true;
 
-      $('who').textContent =
-        userId;
+      $('who').textContent = userId;
+      $('slotLimit').textContent = maxSlots;
 
-      $('loginView')
-        .classList.add('hidden');
+      if (animationEnabled) {
+        $('animationPanel').classList.remove('hidden');
+      } else {
+        $('animationPanel').classList.add('hidden');
+      }
 
-      $('vaultView')
-        .classList.remove('hidden');
+      $('loginView').classList.add('hidden');
+      $('vaultView').classList.remove('hidden');
 
       log('Logged in');
 
@@ -492,7 +485,6 @@ $('loginBtn').onclick =
         );
 
     } catch (e) {
-
       log(
         `Login failed: ${e.message}`
       );
@@ -501,16 +493,12 @@ $('loginBtn').onclick =
 
 $('refreshBtn').onclick =
   async () => {
-
     try {
-
       await refreshServices();
       await refreshDiagnostics();
       await refreshUartMonitor();
       await refreshConnectionStatus();
-
     } catch (e) {
-
       log(
         `Refresh failed: ${e.message}`
       );
@@ -519,9 +507,7 @@ $('refreshBtn').onclick =
 
 $('addServiceBtn').onclick =
   async () => {
-
     try {
-
       const serviceId =
         $('serviceId')
           .value
@@ -531,12 +517,38 @@ $('addServiceBtn').onclick =
         return;
       }
 
+      await playFlow([
+        {
+          from: 'client',
+          to: 'server',
+          label: 'Add service request over HTTPS',
+          encrypted: true
+        },
+        {
+          from: 'server',
+          to: 'device',
+          label: 'UART add-service command',
+          encrypted: false
+        },
+        {
+          from: 'device',
+          to: 'server',
+          label: 'Arduino confirms slot allocation',
+          encrypted: false
+        },
+        {
+          from: 'server',
+          to: 'client',
+          label: 'HTTPS response',
+          encrypted: true
+        }
+      ]);
+
       const response =
         await request(
           '/services',
           {
             method: 'POST',
-
             body: JSON.stringify({
               serviceId
             })
@@ -551,9 +563,7 @@ $('addServiceBtn').onclick =
       await refreshDiagnostics();
       await refreshUartMonitor();
       await refreshConnectionStatus();
-
     } catch (e) {
-
       log(
         `Add service failed: ${e.message}`
       );
@@ -562,13 +572,9 @@ $('addServiceBtn').onclick =
 
 $('diagBtn').onclick =
   async () => {
-
     try {
-
       await refreshDiagnostics();
-
     } catch (e) {
-
       log(
         `Diagnostics failed: ${e.message}`
       );
@@ -577,9 +583,7 @@ $('diagBtn').onclick =
 
 $('statusBtn').onclick =
   async () => {
-
     try {
-
       const response =
         await request(
           '/device/status'
@@ -589,9 +593,7 @@ $('statusBtn').onclick =
 
       await refreshDiagnostics();
       await refreshConnectionStatus();
-
     } catch (e) {
-
       log(
         `Status failed: ${e.message}`
       );
@@ -600,9 +602,7 @@ $('statusBtn').onclick =
 
 $('reconnectBtn').onclick =
   async () => {
-
     try {
-
       const response =
         await request(
           '/device/reconnect',
@@ -616,9 +616,7 @@ $('reconnectBtn').onclick =
       await refreshDiagnostics();
       await refreshUartMonitor();
       await refreshConnectionStatus();
-
     } catch (e) {
-
       log(
         `Reconnect failed: ${e.message}`
       );
@@ -627,13 +625,9 @@ $('reconnectBtn').onclick =
 
 $('refreshUartBtn').onclick =
   async () => {
-
     try {
-
       await refreshUartMonitor();
-
     } catch (e) {
-
       log(
         `UART refresh failed: ${e.message}`
       );
@@ -642,7 +636,6 @@ $('refreshUartBtn').onclick =
 
 $('services').onclick =
   async (ev) => {
-
     const gen =
       ev.target.getAttribute('data-gen');
 
@@ -653,8 +646,33 @@ $('services').onclick =
       ev.target.getAttribute('data-del');
 
     try {
-
       if (gen) {
+        await playFlow([
+          {
+            from: 'client',
+            to: 'server',
+            label: 'Reveal request over HTTPS',
+            encrypted: true
+          },
+          {
+            from: 'server',
+            to: 'device',
+            label: 'UART generate-password command',
+            encrypted: false
+          },
+          {
+            from: 'device',
+            to: 'server',
+            label: 'Generated password over trusted UART',
+            encrypted: false
+          },
+          {
+            from: 'server',
+            to: 'client',
+            label: 'RSA encrypted password response',
+            encrypted: true
+          }
+        ]);
 
         const response =
           await request(
@@ -680,6 +698,32 @@ $('services').onclick =
       }
 
       if (rot) {
+        await playFlow([
+          {
+            from: 'client',
+            to: 'server',
+            label: 'Rotate request over HTTPS',
+            encrypted: true
+          },
+          {
+            from: 'server',
+            to: 'device',
+            label: 'UART rotate-service command',
+            encrypted: false
+          },
+          {
+            from: 'device',
+            to: 'server',
+            label: 'Arduino increments version',
+            encrypted: false
+          },
+          {
+            from: 'server',
+            to: 'client',
+            label: 'HTTPS response',
+            encrypted: true
+          }
+        ]);
 
         const response =
           await request(
@@ -695,15 +739,41 @@ $('services').onclick =
       }
 
       if (del) {
-
         const confirmed =
           confirm(
-            `Delete ${del}?`
+            `Delete ${del}? Device will require repower.`
           );
 
         if (!confirmed) {
           return;
         }
+
+        await playFlow([
+          {
+            from: 'client',
+            to: 'server',
+            label: 'Delete request over HTTPS',
+            encrypted: true
+          },
+          {
+            from: 'server',
+            to: 'device',
+            label: 'UART delete-service command',
+            encrypted: false
+          },
+          {
+            from: 'device',
+            to: 'server',
+            label: 'Device requires repower',
+            encrypted: false
+          },
+          {
+            from: 'server',
+            to: 'client',
+            label: 'HTTPS response',
+            encrypted: true
+          }
+        ]);
 
         const response =
           await request(
@@ -723,7 +793,6 @@ $('services').onclick =
       await refreshConnectionStatus();
 
     } catch (e) {
-
       log(
         `Operation failed: ${e.message}`
       );

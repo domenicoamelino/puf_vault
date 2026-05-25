@@ -11,14 +11,11 @@
   <title>PUF Vault</title>
 
   <style>
-
     body {
       margin: 0;
       padding: 24px;
-
       background: #0d1117;
       color: #ffffff;
-
       font-family: Arial, sans-serif;
     }
 
@@ -29,42 +26,30 @@
 
     .card {
       background: #161b22;
-
       border-radius: 16px;
-
       padding: 24px;
-
       margin-bottom: 24px;
     }
 
     input {
       width: 100%;
-
       padding: 12px;
-
       margin-top: 8px;
       margin-bottom: 16px;
-
       border: none;
       border-radius: 10px;
-
       background: #222937;
       color: white;
-
       box-sizing: border-box;
     }
 
     button {
       border: none;
       border-radius: 10px;
-
       padding: 10px 16px;
-
       cursor: pointer;
-
       background: #3b82f6;
       color: white;
-
       margin-right: 10px;
       margin-bottom: 10px;
     }
@@ -89,110 +74,19 @@
       opacity: 0.7;
     }
 
-    .service {
-      background: #222937;
-
-      border-radius: 14px;
-
-      padding: 18px;
-
-      margin-bottom: 16px;
-
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 24px;
-    }
-
-    .service-actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .revealed-password {
-      margin-top: 10px;
-
-      font-family: monospace;
-      font-size: 15px;
-
-      background: #0d1117;
-
-      padding: 10px;
-
-      border-radius: 10px;
-
-      color: #86efac;
-
-      word-break: break-all;
-    }
-
-    #log {
-      white-space: pre-wrap;
-
-      font-family: monospace;
-
-      background: #0d1117;
-
-      padding: 15px;
-
-      border-radius: 10px;
-
-      max-height: 320px;
-
-      overflow-y: auto;
-    }
-
-    .diagnostics-box {
-      white-space: pre-wrap;
-
-      font-family: monospace;
-
-      background: #0d1117;
-
-      padding: 15px;
-
-      border-radius: 10px;
-
-      overflow-x: auto;
-    }
-
-    .uart-entry {
-      background: #0d1117;
-
-      border-radius: 10px;
-
-      padding: 12px;
-
-      margin-bottom: 10px;
-
-      font-family: monospace;
-    }
-
-    .uart-meta {
-      color: #60a5fa;
-
-      margin-bottom: 6px;
-    }
-
     .connection-status {
       margin-top: 16px;
       margin-bottom: 16px;
-
       display: flex;
       gap: 24px;
-
       flex-wrap: wrap;
     }
 
     .status-light {
       display: inline-block;
-
       width: 12px;
       height: 12px;
-
       border-radius: 50%;
-
       margin-right: 8px;
     }
 
@@ -211,6 +105,127 @@
       box-shadow: 0 0 10px #f59e0b;
     }
 
+    .service {
+      background: #222937;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .service-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .revealed-password {
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 15px;
+      background: #0d1117;
+      padding: 10px;
+      border-radius: 10px;
+      color: #86efac;
+      word-break: break-all;
+    }
+
+    #log {
+      white-space: pre-wrap;
+      font-family: monospace;
+      background: #0d1117;
+      padding: 15px;
+      border-radius: 10px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .diagnostics-box {
+      white-space: pre-wrap;
+      font-family: monospace;
+      background: #0d1117;
+      padding: 15px;
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+
+    .uart-entry {
+      background: #0d1117;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-family: monospace;
+    }
+
+    .uart-meta {
+      color: #60a5fa;
+      margin-bottom: 6px;
+    }
+
+    .animation-panel {
+      position: relative;
+      min-height: 260px;
+      overflow: hidden;
+    }
+
+    .actors {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px;
+      align-items: center;
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .actor {
+      background: #222937;
+      border-radius: 16px;
+      padding: 20px;
+      min-height: 110px;
+    }
+
+    .actor-icon {
+      font-size: 42px;
+      margin-bottom: 8px;
+    }
+
+    .packet {
+      position: absolute;
+      top: 170px;
+      left: 9%;
+      width: 54px;
+      height: 38px;
+      border-radius: 10px;
+      background: #60a5fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      opacity: 0;
+      transition:
+        left 900ms ease-in-out,
+        opacity 200ms ease-in-out,
+        background 200ms ease-in-out;
+      z-index: 5;
+    }
+
+    .packet.encrypted {
+      background: #3b82f6;
+    }
+
+    .packet.plain {
+      background: #9ca3af;
+    }
+
+    .animation-caption {
+      margin-top: 18px;
+      color: #cbd5e1;
+      font-family: monospace;
+      min-height: 24px;
+    }
   </style>
 </head>
 
@@ -235,7 +250,7 @@
 
     <input
       id="username"
-      value="demo"
+      value="test"
     />
 
     <label>Password</label>
@@ -243,7 +258,7 @@
     <input
       id="password"
       type="password"
-      value="demo123"
+      value="test123"
     />
 
     <button id="loginBtn">
@@ -263,6 +278,9 @@
       <div class="muted">
         Logged in as:
         <span id="who"></span>
+        —
+        Slots:
+        <span id="slotLimit"></span>
       </div>
 
       <div class="connection-status">
@@ -298,6 +316,47 @@
         class="secondary">
         Refresh services
       </button>
+
+    </div>
+
+    <div
+      id="animationPanel"
+      class="card animation-panel hidden">
+
+      <h2>Live communication animation</h2>
+
+      <div class="actors">
+
+        <div class="actor" id="actorClient">
+          <div class="actor-icon">🧑‍💻</div>
+          <strong>Client</strong>
+          <div class="muted">Browser</div>
+        </div>
+
+        <div class="actor" id="actorServer">
+          <div class="actor-icon">🍓</div>
+          <strong>Server</strong>
+          <div class="muted">Raspberry Pi / Java</div>
+        </div>
+
+        <div class="actor" id="actorDevice">
+          <div class="actor-icon">🔐</div>
+          <strong>PUF Device</strong>
+          <div class="muted">Arduino</div>
+        </div>
+
+      </div>
+
+      <div
+        id="packet"
+        class="packet">
+        🔒
+      </div>
+
+      <div
+        id="animationCaption"
+        class="animation-caption">
+      </div>
 
     </div>
 
@@ -416,7 +475,7 @@ No diagnostics loaded yet.
 
   </div>
 
-  <script src="app.js?v=30"></script>
+  <script src="app.js?v=40"></script>
 
 </body>
 </html>

@@ -3,12 +3,11 @@
 
 #define BAUD_RATE 115200
 
-#define MAX_SLOTS 6
+#define MAX_SLOTS 5
 #define PUF_SIZE_BYTES 64
 #define PASSWORD_LENGTH 16
-#define EEPROM_MAGIC 0x51
+#define EEPROM_MAGIC 0x61
 
-const char USER_ID[] = "user001";
 const char POLICY_ID[] = "DEFAULT_16";
 
 const char PASSWORD_CHARS[] =
@@ -26,6 +25,7 @@ uint8_t puf_buffer[PUF_SIZE_BYTES];
 
 struct ServiceSlot {
   bool active;
+  char ownerUserId[16];
   char serviceId[32];
   uint32_t version;
 };
@@ -36,12 +36,10 @@ struct DeviceStorage {
 };
 
 DeviceStorage storage;
-
 bool powerCycleRequired = false;
 
 void setup() {
   Serial.begin(BAUD_RATE);
-
   delay(500);
 
   capturePuf();
@@ -51,16 +49,12 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() <= 0) {
-    return;
-  }
+  if (Serial.available() <= 0) return;
 
   String command = Serial.readStringUntil('\n');
   command.trim();
 
-  if (command.length() == 0) {
-    return;
-  }
+  if (command.length() == 0) return;
 
   handleCommand(command);
 }
@@ -83,31 +77,25 @@ void handleCommand(String command) {
   }
 
   if (op == "CAPABILITY") {
-    Serial.print("OK USER=");
-    Serial.print(USER_ID);
-    Serial.print(" SLOTS=");
-    Serial.print(MAX_SLOTS);
-    Serial.print(" POLICY=");
-    Serial.println(POLICY_ID);
+    Serial.println("OK USERS=2 TOTAL_SLOTS=5 TEST_SLOTS=2 PERSONAL_SLOTS=3 POLICY=DEFAULT_16");
     return;
   }
 
   if (op == "LIST_SERVICES") {
+    String userId = getArg(command, 1);
+
     Serial.println("SERVICES_BEGIN");
 
     for (int i = 0; i < MAX_SLOTS; i++) {
+      if (!storage.slots[i].active) continue;
+      if (strcmp(storage.slots[i].ownerUserId, userId.c_str()) != 0) continue;
+
       Serial.print("SLOT ");
       Serial.print(i);
-      Serial.print(" ");
-
-      if (storage.slots[i].active) {
-        Serial.print("ACTIVE ");
-        Serial.print(storage.slots[i].serviceId);
-        Serial.print(" VERSION ");
-        Serial.println(storage.slots[i].version);
-      } else {
-        Serial.println("FREE");
-      }
+      Serial.print(" ACTIVE ");
+      Serial.print(storage.slots[i].serviceId);
+      Serial.print(" VERSION ");
+      Serial.println(storage.slots[i].version);
     }
 
     Serial.println("SERVICES_END");
@@ -120,15 +108,26 @@ void handleCommand(String command) {
   }
 
   if (op == "ADD_SERVICE") {
-    String serviceId = getArg(command, 1);
+    String userId = getArg(command, 1);
+    String serviceId = getArg(command, 2);
+
+    if (!isValidUser(userId)) {
+      Serial.println("NOK INVALID_USER");
+      return;
+    }
 
     if (!isValidServiceId(serviceId)) {
       Serial.println("NOK INVALID_SERVICE_ID");
       return;
     }
 
-    if (findService(serviceId.c_str()) >= 0) {
+    if (findService(userId.c_str(), serviceId.c_str()) >= 0) {
       Serial.println("NOK SERVICE_EXISTS");
+      return;
+    }
+
+    if (countUserServices(userId.c_str()) >= maxSlotsForUser(userId)) {
+      Serial.println("NOK USER_SLOT_LIMIT_REACHED");
       return;
     }
 
@@ -139,16 +138,13 @@ void handleCommand(String command) {
       return;
     }
 
+    memset(&storage.slots[freeSlot], 0, sizeof(ServiceSlot));
+
     storage.slots[freeSlot].active = true;
     storage.slots[freeSlot].version = 0;
 
-    memset(storage.slots[freeSlot].serviceId, 0, sizeof(storage.slots[freeSlot].serviceId));
-
-    strncpy(
-      storage.slots[freeSlot].serviceId,
-      serviceId.c_str(),
-      sizeof(storage.slots[freeSlot].serviceId) - 1
-    );
+    strncpy(storage.slots[freeSlot].ownerUserId, userId.c_str(), sizeof(storage.slots[freeSlot].ownerUserId) - 1);
+    strncpy(storage.slots[freeSlot].serviceId, serviceId.c_str(), sizeof(storage.slots[freeSlot].serviceId) - 1);
 
     saveStorage();
 
@@ -158,9 +154,10 @@ void handleCommand(String command) {
   }
 
   if (op == "DELETE_SERVICE") {
-    String serviceId = getArg(command, 1);
+    String userId = getArg(command, 1);
+    String serviceId = getArg(command, 2);
 
-    int index = findService(serviceId.c_str());
+    int index = findService(userId.c_str(), serviceId.c_str());
 
     if (index < 0) {
       Serial.println("NOK SERVICE_NOT_FOUND");
@@ -177,9 +174,10 @@ void handleCommand(String command) {
   }
 
   if (op == "GENERATE_PASSWORD") {
-    String serviceId = getArg(command, 1);
+    String userId = getArg(command, 1);
+    String serviceId = getArg(command, 2);
 
-    int index = findService(serviceId.c_str());
+    int index = findService(userId.c_str(), serviceId.c_str());
 
     if (index < 0) {
       Serial.println("NOK SERVICE_NOT_FOUND");
@@ -187,6 +185,7 @@ void handleCommand(String command) {
     }
 
     String password = generatePassword(
+      storage.slots[index].ownerUserId,
       storage.slots[index].serviceId,
       storage.slots[index].version
     );
@@ -197,9 +196,10 @@ void handleCommand(String command) {
   }
 
   if (op == "ROTATE_SERVICE") {
-    String serviceId = getArg(command, 1);
+    String userId = getArg(command, 1);
+    String serviceId = getArg(command, 2);
 
-    int index = findService(serviceId.c_str());
+    int index = findService(userId.c_str(), serviceId.c_str());
 
     if (index < 0) {
       Serial.println("NOK SERVICE_NOT_FOUND");
@@ -229,11 +229,10 @@ void handleCommand(String command) {
 }
 
 void capturePuf() {
-  volatile uint8_t marker = 0;
   uint8_t* sram = (uint8_t*)0x0100;
 
   for (int i = 0; i < PUF_SIZE_BYTES; i++) {
-    puf_buffer[i] = sram[i] ^ marker;
+    puf_buffer[i] = sram[i];
   }
 }
 
@@ -251,23 +250,43 @@ void saveStorage() {
   EEPROM.put(0, storage);
 }
 
+bool isValidUser(String userId) {
+  return userId == "user001" || userId == "test001";
+}
+
+int maxSlotsForUser(String userId) {
+  if (userId == "test001") return 2;
+  if (userId == "user001") return 3;
+  return 0;
+}
+
+int countUserServices(const char* userId) {
+  int count = 0;
+
+  for (int i = 0; i < MAX_SLOTS; i++) {
+    if (!storage.slots[i].active) continue;
+    if (strcmp(storage.slots[i].ownerUserId, userId) == 0) count++;
+  }
+
+  return count;
+}
+
 int findFreeSlot() {
   for (int i = 0; i < MAX_SLOTS; i++) {
-    if (!storage.slots[i].active) {
-      return i;
-    }
+    if (!storage.slots[i].active) return i;
   }
 
   return -1;
 }
 
-int findService(const char* serviceId) {
+int findService(const char* userId, const char* serviceId) {
   for (int i = 0; i < MAX_SLOTS; i++) {
-    if (!storage.slots[i].active) {
-      continue;
-    }
+    if (!storage.slots[i].active) continue;
 
-    if (strcmp(storage.slots[i].serviceId, serviceId) == 0) {
+    if (
+      strcmp(storage.slots[i].ownerUserId, userId) == 0 &&
+      strcmp(storage.slots[i].serviceId, serviceId) == 0
+    ) {
       return i;
     }
   }
@@ -276,13 +295,8 @@ int findService(const char* serviceId) {
 }
 
 bool isValidServiceId(String serviceId) {
-  if (serviceId.length() == 0) {
-    return false;
-  }
-
-  if (serviceId.length() >= 31) {
-    return false;
-  }
+  if (serviceId.length() == 0) return false;
+  if (serviceId.length() >= 31) return false;
 
   for (int i = 0; i < serviceId.length(); i++) {
     char c = serviceId.charAt(i);
@@ -295,21 +309,19 @@ bool isValidServiceId(String serviceId) {
       c == '-' ||
       c == '_';
 
-    if (!valid) {
-      return false;
-    }
+    if (!valid) return false;
   }
 
   return true;
 }
 
-String generatePassword(const char* serviceId, uint32_t version) {
+String generatePassword(const char* userId, const char* serviceId, uint32_t version) {
   uint8_t hash[32];
 
   sha256.reset();
 
   sha256.update(puf_buffer, PUF_SIZE_BYTES);
-  sha256.update((const uint8_t*)USER_ID, strlen(USER_ID));
+  sha256.update((const uint8_t*)userId, strlen(userId));
   sha256.update((const uint8_t*)serviceId, strlen(serviceId));
   sha256.update((const uint8_t*)POLICY_ID, strlen(POLICY_ID));
   sha256.update((uint8_t*)&version, sizeof(version));
@@ -334,9 +346,7 @@ String getArg(String input, int index) {
 
   for (int i = 0; i <= input.length(); i++) {
     if (i == input.length() || input.charAt(i) == ' ') {
-      if (found == index) {
-        return input.substring(start, i);
-      }
+      if (found == index) return input.substring(start, i);
 
       found++;
       start = i + 1;

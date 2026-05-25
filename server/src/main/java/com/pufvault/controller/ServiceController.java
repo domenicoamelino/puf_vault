@@ -48,13 +48,12 @@ public class ServiceController {
     public Map<String, List<String>> list(
             @RequestHeader("Authorization") String auth
     ) {
-
-        authService.requireUser(auth);
+        var user = authService.requireUser(auth);
 
         return Map.of(
                 "lines",
                 device.commandMulti(
-                        "LIST_SERVICES",
+                        "LIST_SERVICES " + safe(user.userId()),
                         "SERVICES_END"
                 )
         );
@@ -65,22 +64,18 @@ public class ServiceController {
             @RequestHeader("Authorization") String auth,
             @RequestBody Dto.AddServiceRequest req
     ) {
+        var user = authService.requireUser(auth);
 
-        authService.requireUser(auth);
+        String serviceId = safeService(req.serviceId());
 
-        String serviceId =
-                safeService(req.serviceId());
-
-        String response =
-                device.command(
-                        "ADD_SERVICE "
-                                + serviceId
-                );
-
-        return Map.of(
-                "response",
-                response
+        String response = device.command(
+                "ADD_SERVICE "
+                        + safe(user.userId())
+                        + " "
+                        + serviceId
         );
+
+        return Map.of("response", response);
     }
 
     @DeleteMapping("/{serviceId}")
@@ -88,22 +83,16 @@ public class ServiceController {
             @RequestHeader("Authorization") String auth,
             @PathVariable("serviceId") String serviceId
     ) {
+        var user = authService.requireUser(auth);
 
-        authService.requireUser(auth);
-
-        String safeServiceId =
-                safeService(serviceId);
-
-        String response =
-                device.command(
-                        "DELETE_SERVICE "
-                                + safeServiceId
-                );
-
-        return Map.of(
-                "response",
-                response
+        String response = device.command(
+                "DELETE_SERVICE "
+                        + safe(user.userId())
+                        + " "
+                        + safeService(serviceId)
         );
+
+        return Map.of("response", response);
     }
 
     @PostMapping("/{serviceId}/generate")
@@ -111,38 +100,27 @@ public class ServiceController {
             @RequestHeader("Authorization") String auth,
             @PathVariable("serviceId") String serviceId
     ) {
+        var user = authService.requireUser(auth);
 
-        var user =
-                authService.requireUser(auth);
+        String safeServiceId = safeService(serviceId);
 
-        String safeServiceId =
-                safeService(serviceId);
-
-        String response =
-                device.command(
-                        "GENERATE_PASSWORD "
-                                + safeServiceId
-                );
+        String response = device.command(
+                "GENERATE_PASSWORD "
+                        + safe(user.userId())
+                        + " "
+                        + safeServiceId
+        );
 
         if (!response.startsWith("OK PASSWORD ")) {
-
-            throw new RuntimeException(
-                    response
-            );
+            throw new RuntimeException(response);
         }
 
-        String plaintext =
-                response.substring(
-                        "OK PASSWORD ".length()
-                ).trim();
+        String plaintext = response.substring("OK PASSWORD ".length()).trim();
 
-        String encrypted =
-                rsa.encryptPassword(
-                        publicKeyStore.require(
-                                user.userId()
-                        ),
-                        plaintext
-                );
+        String encrypted = rsa.encryptPassword(
+                publicKeyStore.require(user.userId()),
+                plaintext
+        );
 
         return new Dto.GenerateResponse(
                 encrypted,
@@ -156,29 +134,23 @@ public class ServiceController {
             @RequestHeader("Authorization") String auth,
             @PathVariable("serviceId") String serviceId
     ) {
+        var user = authService.requireUser(auth);
 
-        authService.requireUser(auth);
-
-        String safeServiceId =
-                safeService(serviceId);
-
-        String response =
-                device.command(
-                        "ROTATE_SERVICE "
-                                + safeServiceId
-                );
-
-        return Map.of(
-                "response",
-                response
+        String response = device.command(
+                "ROTATE_SERVICE "
+                        + safe(user.userId())
+                        + " "
+                        + safeService(serviceId)
         );
+
+        return Map.of("response", response);
+    }
+
+    private String safe(String s) {
+        return s.replaceAll("[^A-Za-z0-9_-]", "");
     }
 
     private String safeService(String s) {
-
-        return s.replaceAll(
-                "[^A-Za-z0-9._-]",
-                ""
-        );
+        return s.replaceAll("[^A-Za-z0-9._-]", "");
     }
 }
