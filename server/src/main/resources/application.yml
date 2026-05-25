@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+pufvault:
+  jwtSecret: "change-this-dev-secret-min-32-chars"
+  serial:
+    port: "/dev/tty.usbmodem1101"
+    baud: 115200
+    timeoutMs: 3000
+  cors:
+    allowedOrigins:
+      - "http://localhost:8080"
+      - "http://localhost:3000"
+      - "http://127.0.0.1:5500"
+      - "https://pufvault.domenicoamelino.com"
+  users:
+    - username: "demo"
+      password: "demo123"
+      userId: "user001"

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>PUF Vault</title>
+
+  <style>
+
+    body {
+      margin: 0;
+      padding: 24px;
+
+      background: #0d1117;
+      color: #ffffff;
+
+      font-family: Arial, sans-serif;
+    }
+
+    h1,
+    h2 {
+      margin-top: 0;
+    }
+
+    .card {
+      background: #161b22;
+
+      border-radius: 16px;
+
+      padding: 24px;
+
+      margin-bottom: 24px;
+    }
+
+    input {
+      width: 100%;
+
+      padding: 12px;
+
+      margin-top: 8px;
+      margin-bottom: 16px;
+
+      border: none;
+      border-radius: 10px;
+
+      background: #222937;
+      color: white;
+
+      box-sizing: border-box;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+
+      padding: 10px 16px;
+
+      cursor: pointer;
+
+      background: #3b82f6;
+      color: white;
+
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    button.secondary {
+      background: #374151;
+    }
+
+    button.danger {
+      background: #7f1d1d;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .muted {
+      opacity: 0.7;
+    }
+
+    .service {
+      background: #222937;
+
+      border-radius: 14px;
+
+      padding: 18px;
+
+      margin-bottom: 16px;
+
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .service-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .revealed-password {
+      margin-top: 10px;
+
+      font-family: monospace;
+      font-size: 15px;
+
+      background: #0d1117;
+
+      padding: 10px;
+
+      border-radius: 10px;
+
+      color: #86efac;
+
+      word-break: break-all;
+    }
+
+    #log {
+      white-space: pre-wrap;
+
+      font-family: monospace;
+
+      background: #0d1117;
+
+      padding: 15px;
+
+      border-radius: 10px;
+
+      max-height: 320px;
+
+      overflow-y: auto;
+    }
+
+    .diagnostics-box {
+      white-space: pre-wrap;
+
+      font-family: monospace;
+
+      background: #0d1117;
+
+      padding: 15px;
+
+      border-radius: 10px;
+
+      overflow-x: auto;
+    }
+
+    .uart-entry {
+      background: #0d1117;
+
+      border-radius: 10px;
+
+      padding: 12px;
+
+      margin-bottom: 10px;
+
+      font-family: monospace;
+    }
+
+    .uart-meta {
+      color: #60a5fa;
+
+      margin-bottom: 6px;
+    }
+
+    .connection-status {
+      margin-top: 16px;
+      margin-bottom: 16px;
+
+      display: flex;
+      gap: 24px;
+
+      flex-wrap: wrap;
+    }
+
+    .status-light {
+      display: inline-block;
+
+      width: 12px;
+      height: 12px;
+
+      border-radius: 50%;
+
+      margin-right: 8px;
+    }
+
+    .status-light.green {
+      background: #22c55e;
+      box-shadow: 0 0 10px #22c55e;
+    }
+
+    .status-light.red {
+      background: #ef4444;
+      box-shadow: 0 0 10px #ef4444;
+    }
+
+    .status-light.amber {
+      background: #f59e0b;
+      box-shadow: 0 0 10px #f59e0b;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <h1>PUF Vault</h1>
+
+  <div
+    id="loginView"
+    class="card">
+
+    <h2>Login</h2>
+
+    <label>API endpoint</label>
+
+    <input
+      id="endpoint"
+      value="http://localhost:8080/api"
+    />
+
+    <label>Username</label>
+
+    <input
+      id="username"
+      value="demo"
+    />
+
+    <label>Password</label>
+
+    <input
+      id="password"
+      type="password"
+      value="demo123"
+    />
+
+    <button id="loginBtn">
+      Login
+    </button>
+
+  </div>
+
+  <div
+    id="vaultView"
+    class="hidden">
+
+    <div class="card">
+
+      <h2>Vault</h2>
+
+      <div class="muted">
+        Logged in as:
+        <span id="who"></span>
+      </div>
+
+      <div class="connection-status">
+
+        <div>
+          <span
+            id="serverLight"
+            class="status-light red">
+          </span>
+
+          Server connection:
+          <span id="serverStatusText">
+            Unknown
+          </span>
+        </div>
+
+        <div>
+          <span
+            id="deviceLight"
+            class="status-light red">
+          </span>
+
+          PUF device connection:
+          <span id="deviceStatusText">
+            Unknown
+          </span>
+        </div>
+
+      </div>
+
+      <button
+        id="refreshBtn"
+        class="secondary">
+        Refresh services
+      </button>
+
+    </div>
+
+    <div class="card">
+
+      <h2>Add service</h2>
+
+      <input
+        id="serviceId"
+        placeholder="github.com"
+      />
+
+      <button id="addServiceBtn">
+        Add service
+      </button>
+
+    </div>
+
+    <div class="card">
+
+      <div class="service-actions">
+
+        <button id="tabServices">
+          Services
+        </button>
+
+        <button
+          id="tabDiagnostics"
+          class="secondary">
+          Diagnostics
+        </button>
+
+        <button
+          id="tabUart"
+          class="secondary">
+          UART Monitor
+        </button>
+
+        <button
+          id="tabLogs"
+          class="secondary">
+          Logs
+        </button>
+
+      </div>
+
+      <div id="servicesTab">
+
+        <h2>Services</h2>
+
+        <div id="services"></div>
+
+      </div>
+
+      <div
+        id="diagnosticsTab"
+        class="hidden">
+
+        <h2>Device diagnostics</h2>
+
+        <div class="service-actions">
+
+          <button id="diagBtn">
+            Refresh diagnostics
+          </button>
+
+          <button
+            id="statusBtn"
+            class="secondary">
+            Check device status
+          </button>
+
+          <button
+            id="reconnectBtn"
+            class="secondary">
+            Reconnect device
+          </button>
+
+        </div>
+
+        <pre
+          id="diagnostics"
+          class="diagnostics-box">
+No diagnostics loaded yet.
+        </pre>
+
+      </div>
+
+      <div
+        id="uartTab"
+        class="hidden">
+
+        <h2>UART monitor</h2>
+
+        <button id="refreshUartBtn">
+          Refresh UART monitor
+        </button>
+
+        <br /><br />
+
+        <div id="uartMonitor"></div>
+
+      </div>
+
+      <div
+        id="logsTab"
+        class="hidden">
+
+        <h2>Logs</h2>
+
+        <div id="log"></div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script src="app.js?v=30"></script>
+
+</body>
+</html>
