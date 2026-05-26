@@ -2,12 +2,14 @@
 
 Spring Boot backend handling:
 
-- HTTPS/API
+- HTTPS/API communication
 - Authentication
 - RSA encryption
 - UART communication
-- Diagnostics
-- Device monitoring
+- Device diagnostics
+- UART monitoring
+- Device reconnect logic
+- Live dashboard support
 
 ---
 
@@ -15,14 +17,13 @@ Spring Boot backend handling:
 
 - Java 17+
 - Maven
-- Arduino connected via USB
+- Arduino connected over USB
 
 ---
 
 # Configure Serial Port
 
 Edit:
-
 src/main/resources/application.yml
 
 Example:
@@ -38,6 +39,40 @@ ls /dev/cu.*
 
 ---
 
+# Configured Users
+
+## Personal User
+
+Username:
+demo
+
+Password:
+demo123
+
+Slots:
+3
+
+Animation:
+disabled
+
+---
+
+## Test User
+
+Username:
+test
+
+Password:
+test123
+
+Slots:
+2
+
+Animation:
+enabled
+
+---
+
 # Run Server
 
 From server directory:
@@ -45,14 +80,7 @@ From server directory:
 mvn spring-boot:run
 
 Server:
-
 http://localhost:8080
-
----
-
-# Health Endpoint
-
-GET /api/health
 
 ---
 
@@ -67,9 +95,13 @@ POST /api/login
 ## Services
 
 GET /api/services
+
 POST /api/services
+
 DELETE /api/services/{serviceId}
+
 POST /api/services/{serviceId}/generate
+
 POST /api/services/{serviceId}/rotate
 
 ---
@@ -77,11 +109,17 @@ POST /api/services/{serviceId}/rotate
 ## Device
 
 GET /api/device/status
+
 GET /api/device/capability
+
 GET /api/device/diagnostics
+
 GET /api/device/uart
+
 POST /api/device/reconnect
+
 POST /api/device/ping
+
 POST /api/device/wipe
 
 ---
@@ -90,8 +128,7 @@ POST /api/device/wipe
 
 The server stores UART transcript history.
 
-Displayed in dashboard:
-
+The dashboard displays:
 - timestamp
 - sender
 - receiver
@@ -100,10 +137,10 @@ Displayed in dashboard:
 Example:
 
 Server → Arduino
-ADD_SERVICE github.com
+GENERATE_PASSWORD user001 github.com
 
 Arduino → Server
-OK SERVICE_ADDED SLOT=0
+OK PASSWORD xxxxx
 
 ---
 
@@ -112,31 +149,69 @@ OK SERVICE_ADDED SLOT=0
 ## Server Connection
 
 Green:
+backend reachable
 
-/api/health reachable
+Red:
+server unavailable
+
+---
 
 ## PUF Device Connection
 
 Green:
-
-OK READY
+device operational
 
 Amber:
-
-NOK POWER_CYCLE_REQUIRED
+connected but requires repower
 
 Red:
-
-Device unreachable
+device unreachable
 
 ---
 
-# Reconnect Logic
+# RSA Flow
+
+During login:
+- browser generates RSA keypair
+- public key sent to server
+- private key stays local
+
+During password reveal:
+- Arduino generates plaintext password
+- server encrypts password
+- browser decrypts locally
+
+---
+
+# Device Reconnect Logic
 
 The server automatically:
-
+- retries UART operations
 - reopens serial port
-- retries failed UART commands
 - detects unplug/replug events
 
-Manual reconnect available in dashboard.
+Manual reconnect available from dashboard.
+
+---
+
+# Educational Animation Mode
+
+The test user enables a live communication visualization showing:
+
+- HTTPS/TLS encrypted traffic
+- UART serial communication
+- PUF password generation
+- RSA encryption flow
+
+This mode is hidden for the personal user.
+
+---
+
+# Prototype Limitations
+
+Current simplifications:
+- no fuzzy extractor ECC
+- no helper data
+- UART considered trusted
+- no hardware secure enclave
+- no secure challenge-response

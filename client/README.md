@@ -1,73 +1,171 @@
 # PUF Vault Web Client
 
-Simple HTML/CSS/JavaScript frontend.
+The PUF Vault client is a lightweight HTML/CSS/JavaScript frontend.
 
-The browser:
-
-- generates RSA keypair
-- sends public key to server
-- decrypts passwords locally
-- displays diagnostics and UART logs
+The browser is responsible for:
+- generating RSA keys
+- communicating with the server
+- decrypting passwords locally
+- visualizing UART communication
+- displaying diagnostics and device health
 
 ---
 
 # Requirements
 
-Python 3
-
-or any static HTTP server.
+- Python 3
+OR
+- any static HTTP server
 
 ---
 
 # Run Client (Mac)
 
-From client directory:
+From the client directory:
 
 python3 -m http.server 5500
 
-Open:
+Then open:
 
 http://127.0.0.1:5500
 
 ---
 
-# Login
+# Default Login Accounts
 
-Default demo credentials:
+## Personal User
 
 Username:
-
 demo
 
 Password:
-
 demo123
+
+Capabilities:
+- 3 slots
+- normal UI
+- no animation
+
+---
+
+## Test User
+
+Username:
+test
+
+Password:
+test123
+
+Capabilities:
+- 2 slots
+- educational animation mode enabled
+- live communication visualization
 
 ---
 
 # Main Features
 
+- Login
 - Add service
 - Reveal password
 - Rotate password
 - Delete service
 - UART monitor
 - Device diagnostics
-- Connection status indicators
+- Connection indicators
+- Live communication animation
 
 ---
 
-# Password Handling
+# Connection Indicators
 
-The server returns:
+## Server Connection
 
-RSA encrypted password
+Green:
+server reachable
 
-The browser decrypts locally using:
+Red:
+server disconnected
 
-window.crypto.subtle
+---
+
+## PUF Device Connection
+
+Green:
+Arduino operational
+
+Amber:
+connected but requires repower
+
+Red:
+Arduino disconnected
+
+---
+
+# Browser-side RSA Encryption
+
+During login:
+- browser generates RSA keypair
+- browser sends public key to server
+- browser keeps private key locally
+
+During password reveal:
+- server returns RSA encrypted password
+- browser decrypts locally using WebCrypto
 
 The plaintext password is never stored.
+
+---
+
+# Live Communication Animation
+
+Visible only for the test user.
+
+The animation visualizes:
+- HTTPS/TLS encrypted communication
+- UART communication
+- password generation
+- RSA encryption
+- response delivery
+
+---
+
+# Packet Types
+
+## Encrypted Packet
+
+Blue packet with lock icon.
+
+Represents:
+- HTTPS/TLS communication
+- RSA encrypted password
+
+---
+
+## UART Packet
+
+Grey packet.
+
+Represents:
+- trusted local serial communication
+
+---
+
+# Animation Steps
+
+Example password reveal flow:
+
+1. Browser sends HTTPS request
+2. Server sends UART command
+3. Arduino regenerates password
+4. Server encrypts password with RSA
+5. Browser decrypts locally
+
+Each step includes:
+- sender
+- receiver
+- security explanation
+- encryption state
 
 ---
 
@@ -75,64 +173,75 @@ The plaintext password is never stored.
 
 ## Services
 
-Manage vault entries.
+Manage password slots.
+
+---
 
 ## Diagnostics
 
 Shows:
-
 - serial port
 - last command
 - last response
 - errors
 - available ports
 
+---
+
 ## UART Monitor
 
-Live UART transcript.
+Displays:
+- sender
+- receiver
+- UART message
+- timestamp
+
+Example:
+
+Server → Arduino
+GENERATE_PASSWORD user001 github.com
+
+Arduino → Server
+OK PASSWORD xxxxx
+
+---
 
 ## Logs
 
-Frontend event logs.
-
----
-
-# Connection Indicators
-
-## Server
-
-Green:
-
-Backend reachable
-
-Red:
-
-Server disconnected
-
----
-
-## PUF Device
-
-Green:
-
-Arduino operational
-
-Amber:
-
-Connected but needs Repower
-
-Red:
-
-Arduino disconnected
+Frontend event logging.
 
 ---
 
 # Browser Notes
 
 After frontend updates:
+hard refresh browser cache:
 
-Mac hard refresh:
-
+Mac:
 Cmd + Shift + R
 
-to avoid stale cached JS.
+to avoid stale JavaScript cache issues.
+
+---
+
+# Current Simplifications
+
+Current prototype limitations:
+- no persistent sessions
+- no secure enclave
+- no fuzzy extractor ECC
+- no helper data
+- UART considered trusted/local
+
+---
+
+# Future Ideas
+
+Planned future improvements:
+- mobile support
+- BLE/NFC mode
+- keychain hardware mode
+- password autofill
+- animated topology improvements
+- WebSocket live UART streaming
+- secure hardware-backed storage

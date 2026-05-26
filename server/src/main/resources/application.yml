@@ -5,7 +5,7 @@ pufvault:
       - "http://localhost:5500"
 
   serial:
-    port: "/dev/tty.usbmodem11401"
+    port: "/dev/tty.usbmodem11301"
     baud: 115200
     timeoutMs: 3000
 

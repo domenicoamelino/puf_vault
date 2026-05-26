@@ -1,28 +1,28 @@
 # PUF Vault
 
-PUF Vault is a lightweight password vault prototype based on a Physical Unclonable Function (PUF) running on Arduino hardware.
+PUF Vault is a lightweight password vault prototype based on a Physical Unclonable Function (PUF) implemented on an Arduino device.
 
-The system consists of:
+The system is composed of:
 
-- A web client (HTML/CSS/JS)
-- A Java Spring Boot server running on Mac/Raspberry Pi
-- An Arduino-based PUF device communicating over UART
+- Web client (HTML/CSS/JavaScript)
+- Spring Boot Java server
+- Arduino-based PUF device over UART serial communication
 
-The password is never stored permanently.
-Passwords are deterministically regenerated from:
+The core concept is that passwords are not permanently stored. Instead, they are deterministically regenerated from:
 
-- SRAM startup entropy (PUF)
+- SRAM startup entropy (PUF material)
+- User identity
 - Service identifier
 - Rotation version
-- Internal policy metadata
+- Internal policy information
 
-The server encrypts the generated password using the user's RSA public key before returning it to the browser.
+The generated password is then encrypted using the client RSA public key before being returned to the browser.
 
 ---
 
-# Architecture
+# Current Architecture
 
-Client Browser
+Browser Client
 ↓ HTTPS/TLS
 Spring Boot Server
 ↓ UART Serial
@@ -32,100 +32,143 @@ Arduino PUF Device
 
 # Main Features
 
-- Password generation without storing plaintext passwords
-- RSA client-side encryption/decryption
+- Deterministic password generation
+- SRAM-based PUF entropy
+- RSA browser-side encryption/decryption
 - UART monitoring dashboard
-- Device diagnostics
-- Automatic server/device connection indicators
-- Device repower detection
+- Live communication animation
 - Password rotation
 - Service deletion
-- Live UART transcript
-
----
-
-# Current Device Model
-
-The Arduino firmware currently supports:
-
-- 1 fixed user
-- 6 service slots
-- Delete individual service slot
-- Password rotation versioning
-- UART ping/keep-alive
-
-When a service is deleted:
-
-- EEPROM metadata is updated
-- Device enters POWER_CYCLE_REQUIRED state
-- Dashboard shows:
-  Connected but needs Repower
-
----
-
-# Running the System
-
-## 1. Flash Arduino
-
-Follow:
-
-arduino/README.md
-
-## 2. Start Server
-
-Follow:
-
-server/README.md
-
-## 3. Start Client
-
-Follow:
-
-client/README.md
-
----
-
-# Security Notes
-
-This is currently a prototype implementation.
-
-Security assumptions:
-
-- HTTPS/TLS between browser and server
-- UART connection considered trusted
-- Password encrypted with client RSA public key
-- Password never persisted server-side
-
-Current simplifications:
-
-- No fuzzy extractor ECC
-- No helper data
-- No mutual authentication
-- No secure element
-
----
-
-# UART Monitoring
-
-The dashboard exposes:
-
-- Live UART messages
-- Sender/receiver direction
 - Device diagnostics
-- Serial reconnection status
-- Port information
+- Device reconnection
+- Device health indicators
+- Repower detection
+
+---
+
+# Current User Model
+
+Two users are currently configured:
+
+## Personal User
+
+Username:
+demo
+
+Password:
+demo123
+
+Capabilities:
+- 3 service slots
+- Standard UI
+- No educational animation
+
+---
+
+## Test User
+
+Username:
+test
+
+Password:
+test123
+
+Capabilities:
+- 2 service slots
+- Educational/demo animation enabled
+- Live communication visualization
+
+---
+
+# Slot Model
+
+Total device slots:
+5
+
+Slot ownership:
+- user001 → 3 slots
+- test001 → 2 slots
+
+Each slot stores:
+- active flag
+- owner user ID
+- service ID
+- password version counter
+
+---
+
+# Password Generation
+
+Passwords are deterministically regenerated using:
+
+- SRAM startup entropy
+- userId
+- serviceId
+- password version
+- internal policy identifier
+
+Current password policy:
+- 16 characters
+- upper/lowercase
+- numbers
+- symbols
 
 Example:
-
-Server → Arduino
-ADD_SERVICE github.com
-
-Arduino → Server
-OK SERVICE_ADDED SLOT=0
+qE45(9qe#3uY0ba2
 
 ---
 
-# Device Status States
+# Security Model
+
+## Secure Channel
+
+Browser ↔ Server:
+HTTPS/TLS
+
+## Local Trusted Channel
+
+Server ↔ Arduino:
+UART serial communication
+
+The UART connection is currently considered trusted/local.
+
+---
+
+# RSA Encryption
+
+During login:
+- browser generates RSA keypair
+- browser sends public key to server
+- browser keeps private key locally
+
+When revealing passwords:
+- Arduino generates plaintext password
+- server encrypts with browser public key
+- browser decrypts locally
+
+The plaintext password is never persisted server-side.
+
+---
+
+# Live Communication Animation
+
+The test user includes a visual educational mode showing:
+
+1. HTTPS login requests
+2. UART serial commands
+3. PUF password generation
+4. RSA encryption
+5. HTTPS responses
+
+The animation displays:
+- encrypted packets
+- trusted UART packets
+- detailed explanations
+- sender/receiver flow
+
+---
+
+# Device Health States
 
 ## Green
 
@@ -135,20 +178,78 @@ Device connected and operational.
 
 Device connected but requires repower.
 
+This happens after:
+- deleting services
+- wiping storage
+
 ## Red
 
 Device disconnected or not responding.
 
 ---
 
-# Future Work
+# UART Monitoring
+
+The dashboard includes a live UART transcript showing:
+
+Sender → Receiver
+Message
+
+Example:
+
+Server → Arduino
+GENERATE_PASSWORD user001 github.com
+
+Arduino → Server
+OK PASSWORD xxxxx
+
+---
+
+# Running the System
+
+## 1. Flash Arduino
+
+See:
+arduino/README.md
+
+---
+
+## 2. Start Spring Boot Server
+
+See:
+server/README.md
+
+---
+
+## 3. Start Client
+
+See:
+client/README.md
+
+---
+
+# Current Simplifications
+
+This is still a prototype implementation.
+
+Not yet implemented:
+- fuzzy extractor ECC
+- helper data
+- secure enclave
+- secure element
+- mutual authentication
+- anti-tamper protections
+- hardware-backed key storage
+
+---
+
+# Future Ideas
 
 Planned future evolutions:
-
 - Arduino Nano ESP32
-- Bluetooth/NFC password keychain
-- Mobile autofill integration
-- Secure challenge-response
-- True fuzzy extractor
-- Secure enclave integration
-- Multi-device synchronization
+- BLE/NFC keychain mode
+- mobile autofill integration
+- challenge-response authentication
+- stronger fuzzy extraction
+- secure hardware enclave
+- distributed synchronization
