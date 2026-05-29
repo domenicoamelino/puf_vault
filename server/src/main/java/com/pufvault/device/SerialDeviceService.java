@@ -30,6 +30,7 @@ public class SerialDeviceService {
     private String lastCommand = "";
     private String lastResponse = "";
     private String lastError = "";
+    private String lastFailure = "";
 
     private Instant lastSuccessAt = null;
     private Instant lastFailureAt = null;
@@ -82,8 +83,9 @@ public class SerialDeviceService {
         if (!port.openPort()) {
 
             lastError =
-                    "Cannot open serial port "
+                    "No Arduino serial port found at "
                             + configuredPort;
+            lastFailure = lastError;
 
             lastFailureAt = Instant.now();
 
@@ -216,6 +218,7 @@ public class SerialDeviceService {
 
             lastError =
                     firstFailure.getMessage();
+            lastFailure = lastError;
 
             lastFailureAt = Instant.now();
 
@@ -247,6 +250,7 @@ public class SerialDeviceService {
                 lastError =
                         "Serial command failed after reconnect attempt: "
                                 + secondFailure.getMessage();
+                lastFailure = lastError;
 
                 lastFailureAt = Instant.now();
 
@@ -356,18 +360,132 @@ public class SerialDeviceService {
         return commandMulti(command, null).get(0);
     }
 
+    public synchronized Map<String, Object> safeHealthCheck() {
+
+        Map<String, Object> health =
+                baseDeviceHealth();
+
+        try {
+
+            String status = command("STATUS");
+
+            health.put("deviceConnected", true);
+            health.put("deviceStatus", status);
+            health.put("deviceState", deviceState(status));
+            health.put("lastError", "");
+            health.put("lastFailure", lastFailure);
+            health.put("currentPort", currentPort());
+
+        } catch (Exception e) {
+
+            String message = e.getMessage() == null
+                    ? e.getClass().getSimpleName()
+                    : e.getMessage();
+
+            lastError = message;
+            lastFailure = message;
+            lastFailureAt = Instant.now();
+
+            health.put("deviceConnected", false);
+            health.put("deviceStatus", "DISCONNECTED");
+            health.put("deviceState", "DISCONNECTED");
+            health.put("lastError", message);
+            health.put("lastFailure", message);
+            health.put("currentPort", "DISCONNECTED");
+        }
+
+        health.put("lastFailureAt", formatInstant(lastFailureAt));
+        health.put("lastCommand", lastCommand);
+        health.put("lastResponse", lastResponse);
+        health.put("timestamp", Instant.now().toString());
+
+        return health;
+    }
+
+    private Map<String, Object> baseDeviceHealth() {
+
+        Map<String, Object> health =
+                new LinkedHashMap<>();
+
+        health.put("server", "OK");
+        health.put("deviceConnected", false);
+        health.put("deviceStatus", "DISCONNECTED");
+        health.put("deviceState", "DISCONNECTED");
+        health.put("lastError", lastError);
+        health.put("lastFailure", lastFailure);
+        health.put("currentPort", currentPort());
+        health.put("configuredPort", config.getSerial().getPort());
+        health.put("lastFailureAt", formatInstant(lastFailureAt));
+        health.put("lastCommand", lastCommand);
+        health.put("lastResponse", lastResponse);
+        health.put("timestamp", Instant.now().toString());
+
+        return health;
+    }
+
+    private String deviceState(String status) {
+
+        if ("OK READY".equals(status)) {
+            return "READY";
+        }
+
+        if ("NOK POWER_CYCLE_REQUIRED".equals(status)) {
+            return "POWER_CYCLE_REQUIRED";
+        }
+
+        return "UNKNOWN";
+    }
+
+    private String currentPort() {
+
+        if (!isPortHealthy()) {
+            return "DISCONNECTED";
+        }
+
+        String configuredPort = config.getSerial().getPort();
+
+        if (configuredPort != null && !configuredPort.isBlank()) {
+            return configuredPort;
+        }
+
+        return port.getSystemPortName();
+    }
+
+    private String formatInstant(Instant value) {
+        return value == null ? "" : value.toString();
+    }
+
+    private List<String> availablePorts() {
+
+        try {
+            return Arrays.stream(
+                            SerialPort.getCommPorts()
+                    )
+                    .map(p ->
+                            p.getSystemPortName()
+                                    + " / "
+                                    + p.getDescriptivePortName()
+                    )
+                    .toList();
+        } catch (Exception e) {
+
+            String message = e.getMessage() == null
+                    ? e.getClass().getSimpleName()
+                    : e.getMessage();
+
+            lastError = message;
+            lastFailure = message;
+            lastFailureAt = Instant.now();
+
+            return List.of(
+                    "Unable to list serial ports: " + message
+            );
+        }
+    }
+
     public synchronized Map<String, Object> diagnostics() {
 
-        List<String> availablePorts =
-                Arrays.stream(
-                                SerialPort.getCommPorts()
-                        )
-                        .map(p ->
-                                p.getSystemPortName()
-                                        + " / "
-                                        + p.getDescriptivePortName()
-                        )
-                        .toList();
+        List<String> availablePorts = availablePorts();
 
         Map<String, Object> diagnostics =
                 new LinkedHashMap<>();
@@ -393,6 +511,16 @@ public class SerialDeviceService {
         );
 
         diagnostics.put(
+                "currentPort",
+                currentPort()
+        );
+
+        diagnostics.put(
+                "lastFailure",
+                lastFailure
+        );
+
+        diagnostics.put(
                 "lastCommand",
                 lastCommand
         );
@@ -409,23 +537,17 @@ public class SerialDeviceService {
 
         diagnostics.put(
                 "lastOpenAt",
-                lastOpenAt == null
-                        ? ""
-                        : lastOpenAt.toString()
+                formatInstant(lastOpenAt)
         );
 
         diagnostics.put(
                 "lastSuccessAt",
-                lastSuccessAt == null
-                        ? ""
-                        : lastSuccessAt.toString()
+                formatInstant(lastSuccessAt)
         );
 
         diagnostics.put(
                 "lastFailureAt",
-                lastFailureAt == null
-                        ? ""
-                        : lastFailureAt.toString()
+                formatInstant(lastFailureAt)
         );
 
         diagnostics.put(

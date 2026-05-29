@@ -73,9 +73,9 @@ async function checkServerConnection() {
 async function checkPufDeviceConnection() {
   try {
     const response =
-      await request('/device/status');
+      await request('/device/health');
 
-    if (response.response === 'OK READY') {
+    if (response.deviceState === 'READY') {
 
       setLight(
         'deviceLight',
@@ -88,8 +88,8 @@ async function checkPufDeviceConnection() {
     }
 
     if (
-      response.response ===
-      'NOK POWER_CYCLE_REQUIRED'
+      response.deviceState ===
+      'POWER_CYCLE_REQUIRED'
     ) {
 
       setLight(
@@ -102,11 +102,26 @@ async function checkPufDeviceConnection() {
       return true;
     }
 
+    if (
+      response.deviceState ===
+      'DISCONNECTED'
+    ) {
+
+      setLight(
+        'deviceLight',
+        'deviceStatusText',
+        'error',
+        'Arduino disconnected'
+      );
+
+      return false;
+    }
+
     setLight(
       'deviceLight',
       'deviceStatusText',
       'warning',
-      response.response
+      response.deviceStatus || 'Unknown'
     );
 
     return true;
@@ -117,7 +132,7 @@ async function checkPufDeviceConnection() {
       'deviceLight',
       'deviceStatusText',
       'error',
-      'Disconnected'
+      'Unknown'
     );
 
     return false;
@@ -489,6 +504,40 @@ async function refreshUartMonitor() {
   }
 }
 
+async function refreshDashboardSnapshot() {
+
+  const tasks = [
+    {
+      name: 'Services',
+      run: refreshServices
+    },
+    {
+      name: 'Diagnostics',
+      run: refreshDiagnostics
+    },
+    {
+      name: 'UART monitor',
+      run: refreshUartMonitor
+    },
+    {
+      name: 'Connection status',
+      run: refreshConnectionStatus
+    }
+  ];
+
+  for (const task of tasks) {
+
+    try {
+      await task.run();
+    } catch (e) {
+
+      log(
+        `${task.name} refresh failed: ${e.message}`
+      );
+    }
+  }
+}
+
 $('loginBtn').onclick =
   async () => {
 
@@ -559,10 +608,7 @@ $('loginBtn').onclick =
 
       log('Logged in');
 
-      await refreshServices();
-      await refreshDiagnostics();
-      await refreshUartMonitor();
-      await refreshConnectionStatus();
+      await refreshDashboardSnapshot();
 
       if (statusInterval) {
         clearInterval(statusInterval);
@@ -587,10 +633,7 @@ $('refreshBtn').onclick =
 
     try {
 
-      await refreshServices();
-      await refreshDiagnostics();
-      await refreshUartMonitor();
-      await refreshConnectionStatus();
+      await refreshDashboardSnapshot();
 
     } catch (e) {
 

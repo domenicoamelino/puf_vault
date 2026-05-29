@@ -171,23 +171,56 @@ The animation displays:
 
 ---
 
-# Device Health States
+# Health, Device Status, and Diagnostics
 
-## Green
+PUF Vault intentionally separates server health from Arduino health so the browser can distinguish a live Raspberry Pi server from a missing or unhealthy PUF device.
 
-Device connected and operational.
+## Server Health
 
-## Amber
+`GET /api/health` is a public Spring Boot liveness check. It returns quickly whenever the server process is alive and does not open, probe, or depend on the Arduino serial connection.
 
-Device connected but requires repower.
+Example response:
 
-This happens after:
-- deleting services
-- wiping storage
+```json
+{
+  "server": "OK",
+  "service": "PUF Vault Server",
+  "timestamp": "2026-05-29T12:00:00Z"
+}
+```
 
-## Red
+## Device Health
 
-Device disconnected or not responding.
+`GET /api/device/health` is an authenticated dashboard health check for the Arduino. It performs a lightweight `STATUS` command, catches serial failures, and still returns HTTP 200 while the Spring Boot server is alive. The dashboard uses this endpoint for the PUF device light.
+
+Device states:
+
+- `READY` → green device light, text `OK`
+- `POWER_CYCLE_REQUIRED` → amber device light, text `Connected but needs Repower`
+- `DISCONNECTED` → red device light, text `Arduino disconnected`
+- any other state → amber device light with the returned device status
+
+Example disconnected response:
+
+```json
+{
+  "server": "OK",
+  "deviceConnected": false,
+  "deviceStatus": "DISCONNECTED",
+  "deviceState": "DISCONNECTED",
+  "lastError": "No Arduino serial port found at /dev/serial/by-id/...",
+  "currentPort": "DISCONNECTED",
+  "timestamp": "2026-05-29T12:00:00Z"
+}
+```
+
+## Device Status
+
+`GET /api/device/status` remains an authenticated manual/debug command that directly sends `STATUS` to the Arduino. It can fail visibly if the Arduino is unavailable and is not used for dashboard keep-alive polling.
+
+## Diagnostics
+
+`GET /api/device/diagnostics` is authenticated and reports serial diagnostics such as `currentPort`, `availablePorts`, `lastFailure`, `lastFailureAt`, `lastCommand`, and `lastResponse`. It is safe to view while the Arduino is disconnected so UART history and other dashboard panels remain usable.
 
 ---
 
