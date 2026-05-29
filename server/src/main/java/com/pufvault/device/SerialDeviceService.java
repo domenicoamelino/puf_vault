@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -26,6 +27,7 @@ public class SerialDeviceService {
     private SerialPort port;
     private BufferedReader reader;
     private OutputStream output;
+    private String currentPortIdentifier = "";
 
     private String lastCommand = "";
     private String lastResponse = "";
@@ -62,12 +64,76 @@ public class SerialDeviceService {
 
     private void openPort() {
 
-        String configuredPort =
-                config.getSerial().getPort();
+        List<PortCandidate> candidates =
+                serialPortCandidates();
+
+        List<String> attemptedPorts =
+                new ArrayList<>();
+
+        for (PortCandidate candidate : candidates) {
+
+            attemptedPorts.add(candidate.description());
+
+            try {
+
+                openCandidate(candidate);
+
+                if (isPufVaultDevice()) {
+
+                    currentPortIdentifier =
+                            candidate.identifier();
+
+                    lastOpenAt = Instant.now();
+
+                    logUart(
+                            "Server",
+                            "Arduino",
+                            "SERIAL_PORT_OPEN "
+                                    + candidate.description()
+                    );
+
+                    return;
+                }
+
+                logUart(
+                        "Server",
+                        "Arduino",
+                        "SERIAL_PORT_SKIPPED "
+                                + candidate.description()
+                );
+
+            } catch (Exception ignored) {
+
+                // Try the next available serial port.
+
+            } finally {
+
+                if (!isPortHealthy()
+                        || currentPortIdentifier.isBlank()) {
+                    closeQuietly();
+                }
+            }
+        }
+
+        String message =
+                attemptedPorts.isEmpty()
+                        ? "No serial ports were found"
+                        : "No PUF Vault Arduino detected. Tried: "
+                                + String.join(", ", attemptedPorts);
+
+        lastError = message;
+        lastFailure = message;
+        lastFailureAt = Instant.now();
+
+        throw new RuntimeException(message);
+    }
+
+    private void openCandidate(PortCandidate candidate)
+            throws IOException, InterruptedException {
 
         port =
                 SerialPort.getCommPort(
-                        configuredPort
+                        candidate.identifier()
                 );
 
         port.setBaudRate(
@@ -81,15 +147,10 @@ public class SerialDeviceService {
         );
 
         if (!port.openPort()) {
-
-            lastError =
-                    "No Arduino serial port found at "
-                            + configuredPort;
-            lastFailure = lastError;
-
-            lastFailureAt = Instant.now();
-
-            throw new RuntimeException(lastError);
+            throw new IOException(
+                    "Unable to open "
+                            + candidate.description()
+            );
         }
 
         reader =
@@ -102,21 +163,64 @@ public class SerialDeviceService {
 
         output = port.getOutputStream();
 
-        lastOpenAt = Instant.now();
+        Thread.sleep(1800);
+
+        drain();
+    }
+
+    private boolean isPufVaultDevice()
+            throws IOException {
+
+        if (!isPortHealthy()) {
+            return false;
+        }
 
         logUart(
                 "Server",
                 "Arduino",
-                "SERIAL_PORT_OPEN"
+                "STATUS"
         );
 
-        try {
+        output.write(
+                "STATUS\n".getBytes(StandardCharsets.UTF_8)
+        );
 
-            Thread.sleep(1800);
+        output.flush();
 
-            drain();
+        long deadline =
+                System.currentTimeMillis()
+                        + config.getSerial().getTimeoutMs();
 
-        } catch (Exception ignored) {}
+        while (System.currentTimeMillis() < deadline) {
+
+            String line = reader.readLine();
+
+            if (line == null) {
+                continue;
+            }
+
+            line = line.trim();
+
+            if (line.isBlank()) {
+                continue;
+            }
+
+            logUart(
+                    "Arduino",
+                    "Server",
+                    line
+            );
+
+            if (line.startsWith("OK READY")
+                    || line.startsWith("NOK POWER_CYCLE_REQUIRED")) {
+                lastResponse = line;
+                lastSuccessAt = Instant.now();
+                lastError = "";
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public synchronized void reconnect() {
@@ -161,6 +265,7 @@ public class SerialDeviceService {
         reader = null;
         output = null;
         port = null;
+        currentPortIdentifier = "";
     }
 
     private void drain() throws IOException {
@@ -442,10 +547,9 @@ public class SerialDeviceService {
             return "DISCONNECTED";
         }
 
-        String configuredPort = config.getSerial().getPort();
-
-        if (configuredPort != null && !configuredPort.isBlank()) {
-            return configuredPort;
+        if (currentPortIdentifier != null
+                && !currentPortIdentifier.isBlank()) {
+            return currentPortIdentifier;
         }
 
         return port.getSystemPortName();
@@ -453,6 +557,123 @@ public class SerialDeviceService {
 
     private String formatInstant(Instant value) {
         return value == null ? "" : value.toString();
+    }
+
+    private List<PortCandidate> serialPortCandidates() {
+
+        List<PortCandidate> candidates =
+                new ArrayList<>();
+
+        String configuredPort =
+                config.getSerial().getPort();
+
+        if (isManualPort(configuredPort)) {
+            candidates.add(
+                    new PortCandidate(
+                            configuredPort,
+                            configuredPort,
+                            1000
+                    )
+            );
+        }
+
+        try {
+
+            Arrays.stream(SerialPort.getCommPorts())
+                    .map(this::portCandidate)
+                    .sorted(
+                            Comparator.comparingInt(
+                                    PortCandidate::score
+                            ).reversed()
+                    )
+                    .forEach(candidates::add);
+
+        } catch (Exception e) {
+
+            String message = e.getMessage() == null
+                    ? e.getClass().getSimpleName()
+                    : e.getMessage();
+
+            lastError = message;
+            lastFailure = message;
+            lastFailureAt = Instant.now();
+        }
+
+        return candidates.stream()
+                .filter(candidate ->
+                        candidate.identifier() != null
+                                && !candidate.identifier().isBlank()
+                )
+                .collect(
+                        java.util.stream.Collectors.collectingAndThen(
+                                java.util.stream.Collectors.toMap(
+                                        PortCandidate::identifier,
+                                        candidate -> candidate,
+                                        (first, ignored) -> first,
+                                        LinkedHashMap::new
+                                ),
+                                map -> new ArrayList<>(map.values())
+                        )
+                );
+    }
+
+    private boolean isManualPort(String configuredPort) {
+        return configuredPort != null
+                && !configuredPort.isBlank()
+                && !"auto".equalsIgnoreCase(configuredPort);
+    }
+
+    private PortCandidate portCandidate(SerialPort serialPort) {
+
+        String identifier = serialPort.getSystemPortName();
+
+        String description =
+                identifier
+                        + " / "
+                        + serialPort.getDescriptivePortName();
+
+        return new PortCandidate(
+                identifier,
+                description,
+                portScore(identifier, description)
+        );
+    }
+
+    private int portScore(
+            String identifier,
+            String description
+    ) {
+
+        String value =
+                (identifier + " " + description)
+                        .toLowerCase();
+
+        int score = 0;
+
+        if (value.contains("arduino")) {
+            score += 100;
+        }
+
+        if (value.contains("ttyacm")) {
+            score += 80;
+        }
+
+        if (value.contains("ttyusb")) {
+            score += 70;
+        }
+
+        if (value.contains("usbmodem")) {
+            score += 70;
+        }
+
+        if (value.contains("wch")
+                || value.contains("ch340")
+                || value.contains("cp210")
+                || value.contains("usb serial")) {
+            score += 50;
+        }
+
+        return score;
     }
 
     private List<String> availablePorts() {
@@ -493,6 +714,13 @@ public class SerialDeviceService {
         diagnostics.put(
                 "configuredPort",
                 config.getSerial().getPort()
+        );
+
+        diagnostics.put(
+                "portDetection",
+                isManualPort(config.getSerial().getPort())
+                        ? "manual-with-auto-fallback"
+                        : "auto"
         );
 
         diagnostics.put(
@@ -557,6 +785,12 @@ public class SerialDeviceService {
 
         return diagnostics;
     }
+
+    private record PortCandidate(
+            String identifier,
+            String description,
+            int score
+    ) {}
 
     public synchronized List<Map<String, Object>> uartLogs() {
         return new ArrayList<>(uartLog);

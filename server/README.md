@@ -23,19 +23,19 @@ Spring Boot backend handling:
 
 # Configure Serial Port
 
+The server detects the Arduino automatically by scanning available serial ports and probing each candidate with the firmware `STATUS` command. This is the default and is suitable for Raspberry Pi paths such as `/dev/ttyACM0` and `/dev/ttyUSB0`.
+
 Edit:
 src/main/resources/application.yml
 
 Example:
 
 serial:
-  port: /dev/cu.usbmodem1101
+  port: auto
   baud: 115200
   timeoutMs: 3000
 
-Find ports on Mac:
-
-ls /dev/cu.*
+If you need to prefer a specific port for debugging, set `serial.port` to that path. The server tries that value first, then falls back to auto-detected ports if it does not respond like a PUF Vault Arduino.
 
 ---
 
