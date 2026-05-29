@@ -98,6 +98,8 @@ GET /api/services
 
 POST /api/services
 
+When a service is created, the server generates a UART-safe creation nonce such as `20260526T163012Z_9f2c1d3a` and sends it to the device as `ADD_SERVICE <userId> <serviceId> <creationNonce>`. The Arduino stores that nonce in EEPROM and includes it in password derivation, so deleting and recreating the same service ID produces a different password.
+
 DELETE /api/services/{serviceId}
 
 POST /api/services/{serviceId}/generate
@@ -177,7 +179,7 @@ During login:
 - private key stays local
 
 During password reveal:
-- Arduino generates plaintext password
+- Arduino generates plaintext password from PUF material, user ID, service ID, policy ID, version, and the stored creation nonce
 - server encrypts password
 - browser decrypts locally
 

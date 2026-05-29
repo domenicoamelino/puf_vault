@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import com.pufvault.auth.AuthService;
 import com.pufvault.auth.PublicKeyStore;
@@ -40,6 +41,19 @@ class ServiceControllerTest {
         when(device.commandMulti("LIST_SERVICES user001", "SERVICES_END")).thenReturn(List.of("SERVICES_BEGIN", "SERVICES_END"));
         Map<String, List<String>> result = controller.list("Bearer token");
         assertEquals(2, result.get("lines").size());
+    }
+
+    @Test
+    void addSendsServerGeneratedCreationNonce() {
+        when(device.command(anyString())).thenReturn("OK SERVICE_ADDED SLOT=0");
+
+        Map<String, Object> result = controller.add("Bearer token", new Dto.AddServiceRequest("github.com"));
+
+        ArgumentCaptor<String> command = ArgumentCaptor.forClass(String.class);
+        verify(device).command(command.capture());
+
+        assertEquals("OK SERVICE_ADDED SLOT=0", result.get("response"));
+        assertTrue(command.getValue().matches("ADD_SERVICE user001 github\\.com \\d{8}T\\d{6}Z_[a-f0-9]{8}"));
     }
 
     @Test

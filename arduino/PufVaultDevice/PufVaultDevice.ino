@@ -6,7 +6,7 @@
 #define MAX_SLOTS 5
 #define PUF_SIZE_BYTES 64
 #define PASSWORD_LENGTH 16
-#define EEPROM_MAGIC 0x61
+#define EEPROM_MAGIC 0x62
 
 const char POLICY_ID[] = "DEFAULT_16";
 
@@ -27,6 +27,7 @@ struct ServiceSlot {
   bool active;
   char ownerUserId[16];
   char serviceId[32];
+  char creationNonce[48];
   uint32_t version;
 };
 
@@ -110,6 +111,7 @@ void handleCommand(String command) {
   if (op == "ADD_SERVICE") {
     String userId = getArg(command, 1);
     String serviceId = getArg(command, 2);
+    String creationNonce = getArg(command, 3);
 
     if (!isValidUser(userId)) {
       Serial.println("NOK INVALID_USER");
@@ -118,6 +120,11 @@ void handleCommand(String command) {
 
     if (!isValidServiceId(serviceId)) {
       Serial.println("NOK INVALID_SERVICE_ID");
+      return;
+    }
+
+    if (!isValidCreationNonce(creationNonce)) {
+      Serial.println("NOK INVALID_CREATION_NONCE");
       return;
     }
 
@@ -145,6 +152,7 @@ void handleCommand(String command) {
 
     strncpy(storage.slots[freeSlot].ownerUserId, userId.c_str(), sizeof(storage.slots[freeSlot].ownerUserId) - 1);
     strncpy(storage.slots[freeSlot].serviceId, serviceId.c_str(), sizeof(storage.slots[freeSlot].serviceId) - 1);
+    strncpy(storage.slots[freeSlot].creationNonce, creationNonce.c_str(), sizeof(storage.slots[freeSlot].creationNonce) - 1);
 
     saveStorage();
 
@@ -187,6 +195,7 @@ void handleCommand(String command) {
     String password = generatePassword(
       storage.slots[index].ownerUserId,
       storage.slots[index].serviceId,
+      storage.slots[index].creationNonce,
       storage.slots[index].version
     );
 
@@ -301,13 +310,7 @@ bool isValidServiceId(String serviceId) {
   for (int i = 0; i < serviceId.length(); i++) {
     char c = serviceId.charAt(i);
 
-    bool valid =
-      (c >= 'A' && c <= 'Z') ||
-      (c >= 'a' && c <= 'z') ||
-      (c >= '0' && c <= '9') ||
-      c == '.' ||
-      c == '-' ||
-      c == '_';
+    bool valid = isSafeMetadataChar(c);
 
     if (!valid) return false;
   }
@@ -315,7 +318,30 @@ bool isValidServiceId(String serviceId) {
   return true;
 }
 
-String generatePassword(const char* userId, const char* serviceId, uint32_t version) {
+bool isValidCreationNonce(String creationNonce) {
+  if (creationNonce.length() == 0) return false;
+  if (creationNonce.length() >= 48) return false;
+
+  for (int i = 0; i < creationNonce.length(); i++) {
+    char c = creationNonce.charAt(i);
+
+    if (!isSafeMetadataChar(c)) return false;
+  }
+
+  return true;
+}
+
+bool isSafeMetadataChar(char c) {
+  return
+    (c >= 'A' && c <= 'Z') ||
+    (c >= 'a' && c <= 'z') ||
+    (c >= '0' && c <= '9') ||
+    c == '.' ||
+    c == '-' ||
+    c == '_';
+}
+
+String generatePassword(const char* userId, const char* serviceId, const char* creationNonce, uint32_t version) {
   uint8_t hash[32];
 
   sha256.reset();
@@ -325,6 +351,7 @@ String generatePassword(const char* userId, const char* serviceId, uint32_t vers
   sha256.update((const uint8_t*)serviceId, strlen(serviceId));
   sha256.update((const uint8_t*)POLICY_ID, strlen(POLICY_ID));
   sha256.update((uint8_t*)&version, sizeof(version));
+  sha256.update((const uint8_t*)creationNonce, strlen(creationNonce));
 
   sha256.finalize(hash, sizeof(hash));
 
