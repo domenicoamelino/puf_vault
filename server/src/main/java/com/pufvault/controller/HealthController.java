@@ -1,5 +1,6 @@
 package com.pufvault.controller;
 
+import java.time.Instant;
 import java.util.Map;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -19,8 +20,10 @@ public class HealthController {
     public Map<String, Object> health() {
 
         return Map.of(
+                "server", "OK",
                 "status", "OK",
-                "service", "PUF Vault Server"
+                "service", "PUF Vault Server",
+                "timestamp", Instant.now().toString()
         );
     }
 }

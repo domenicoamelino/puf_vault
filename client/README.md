@@ -79,7 +79,11 @@ Capabilities:
 
 # Connection Indicators
 
+The dashboard uses two separate health checks so the web client can show a live server even when the Arduino is unplugged.
+
 ## Server Connection
+
+The server indicator calls `GET /api/health`. This endpoint only checks Spring Boot liveness and never depends on Arduino connectivity.
 
 Green:
 server reachable
@@ -91,14 +95,18 @@ server disconnected
 
 ## PUF Device Connection
 
+The PUF device indicator calls authenticated `GET /api/device/health` only after the server is reachable and the user has a token. The dashboard no longer uses `/api/device/status` for keep-alive polling.
+
 Green:
-Arduino operational
+Arduino operational (`deviceState` is `READY`)
 
 Amber:
-connected but requires repower
+connected but requires repower (`deviceState` is `POWER_CYCLE_REQUIRED`)
 
 Red:
-Arduino disconnected
+Arduino disconnected (`deviceState` is `DISCONNECTED`)
+
+`GET /api/device/status` remains available as a manual/debug command, and diagnostics continue to display `currentPort`, `availablePorts`, `lastFailure`, `lastFailureAt`, `lastCommand`, and `lastResponse` if the Arduino is disconnected.
 
 ---
 

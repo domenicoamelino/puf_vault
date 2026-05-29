@@ -110,11 +110,23 @@ POST /api/services/{serviceId}/rotate
 
 ## Device
 
+GET /api/health
+
+Public server liveness check. This endpoint never calls the Arduino and should remain green as long as Spring Boot is reachable.
+
+GET /api/device/health
+
+Authenticated, non-throwing dashboard health check for the Arduino. It sends a lightweight `STATUS` command, catches serial exceptions, and returns HTTP 200 with `deviceState` values such as `READY`, `POWER_CYCLE_REQUIRED`, or `DISCONNECTED` while the server is alive.
+
 GET /api/device/status
+
+Authenticated manual/debug `STATUS` command. This endpoint may fail if the Arduino is unavailable and should not be used for dashboard keep-alive polling.
 
 GET /api/device/capability
 
 GET /api/device/diagnostics
+
+Authenticated serial diagnostics. The response includes `currentPort`, `availablePorts`, `lastFailure`, `lastFailureAt`, `lastCommand`, and `lastResponse` even when the Arduino is disconnected.
 
 GET /api/device/uart
 

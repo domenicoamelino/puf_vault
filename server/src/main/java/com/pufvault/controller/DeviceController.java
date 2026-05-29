@@ -31,6 +31,17 @@ public class DeviceController {
         this.device = device;
     }
 
+
+    @GetMapping("/health")
+    public Map<String, Object> health(
+            @RequestHeader("Authorization") String auth
+    ) {
+
+        authService.requireUser(auth);
+
+        return device.safeHealthCheck();
+    }
+
     @GetMapping("/status")
     public Map<String, Object> status(
             @RequestHeader("Authorization") String auth
