@@ -9,7 +9,7 @@ pufvault:
       - "https://www.domenicoamelino.com"
 
   serial:
-    port: "/dev/tty.usbmodem11301"
+    port: "auto"
     baud: 115200
     timeoutMs: 3000
 
