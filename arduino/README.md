@@ -54,6 +54,7 @@ Each slot stores:
 - owner user ID
 - service ID
 - password version counter
+- server-generated creation nonce (up to 31 UART-safe characters: `A-Z a-z 0-9 _ - .`)
 
 ---
 
@@ -64,6 +65,7 @@ Passwords are regenerated from:
 - userId
 - serviceId
 - version counter
+- per-service creation nonce
 - policy identifier
 
 Current password policy:
@@ -129,7 +131,7 @@ CAPABILITY
 
 LIST_SERVICES user001
 
-ADD_SERVICE user001 github.com
+ADD_SERVICE user001 github.com 20260526T163012Z_9f2c1d3a
 
 GENERATE_PASSWORD user001 github.com
 

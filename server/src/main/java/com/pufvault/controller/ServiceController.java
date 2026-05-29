@@ -1,7 +1,11 @@
 package com.pufvault.controller;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +34,10 @@ public class ServiceController {
     private final AuthService authService;
     private final SerialDeviceService device;
     private final PublicKeyStore publicKeyStore;
+    private static final DateTimeFormatter CREATION_NONCE_TIMESTAMP = DateTimeFormatter
+            .ofPattern("yyyyMMdd'T'HHmmss'Z'")
+            .withZone(ZoneOffset.UTC);
+
     private final RsaEncryptionService rsa;
 
     public ServiceController(
@@ -68,11 +76,15 @@ public class ServiceController {
 
         String serviceId = safeService(req.serviceId());
 
+        String creationNonce = newCreationNonce();
+
         String response = device.command(
                 "ADD_SERVICE "
                         + safe(user.userId())
                         + " "
                         + serviceId
+                        + " "
+                        + creationNonce
         );
 
         return Map.of("response", response);
@@ -144,6 +156,12 @@ public class ServiceController {
         );
 
         return Map.of("response", response);
+    }
+
+    private String newCreationNonce() {
+        return CREATION_NONCE_TIMESTAMP.format(Instant.now())
+                + "_"
+                + UUID.randomUUID().toString().substring(0, 8);
     }
 
     private String safe(String s) {

@@ -14,6 +14,7 @@ The core concept is that passwords are not permanently stored. Instead, they are
 - User identity
 - Service identifier
 - Rotation version
+- Per-service creation nonce
 - Internal policy information
 
 The generated password is then encrypted using the client RSA public key before being returned to the browser.
@@ -94,6 +95,7 @@ Each slot stores:
 - owner user ID
 - service ID
 - password version counter
+- server-generated creation nonce
 
 ---
 
@@ -105,6 +107,7 @@ Passwords are deterministically regenerated using:
 - userId
 - serviceId
 - password version
+- per-service creation nonce
 - internal policy identifier
 
 Current password policy:
