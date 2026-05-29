@@ -54,7 +54,7 @@ Each slot stores:
 - owner user ID
 - service ID
 - password version counter
-- server-generated creation nonce
+- server-generated creation nonce (up to 31 UART-safe characters: `A-Z a-z 0-9 _ - .`)
 
 ---
 

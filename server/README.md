@@ -98,7 +98,7 @@ GET /api/services
 
 POST /api/services
 
-When a service is created, the server generates a UART-safe creation nonce such as `20260526T163012Z_9f2c1d3a` and sends it to the device as `ADD_SERVICE <userId> <serviceId> <creationNonce>`. The Arduino stores that nonce in EEPROM and includes it in password derivation, so deleting and recreating the same service ID produces a different password.
+When a service is created, the server generates a UART-safe creation nonce such as `20260526T163012Z_9f2c1d3a` and sends it to the device as `ADD_SERVICE <userId> <serviceId> <creationNonce>`. The generated nonce is 25 characters, fitting the firmware field that accepts up to 31 UART-safe characters (`A-Z a-z 0-9 _ - .`). The Arduino stores that nonce in EEPROM and includes it in password derivation, so deleting and recreating the same service ID produces a different password.
 
 DELETE /api/services/{serviceId}
 
