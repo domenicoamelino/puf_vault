@@ -72,6 +72,7 @@ Capabilities:
 - Delete service
 - UART monitor
 - Device diagnostics
+- Authenticated device reset/power-cycle control
 - Connection indicators
 - Live communication animation
 
@@ -107,6 +108,32 @@ Red:
 Arduino disconnected (`deviceState` is `DISCONNECTED`)
 
 `GET /api/device/status` remains available as a manual/debug command, and diagnostics continue to display `currentPort`, `availablePorts`, `lastFailure`, `lastFailureAt`, `lastCommand`, and `lastResponse` if the Arduino is disconnected.
+
+## Reset Device Control
+
+The diagnostics tab provides a **Reset device** button. After confirmation, the browser sends authenticated `POST /api/reset_device`, disables the button while the operation is running, logs the result, and refreshes device health and diagnostics after a short delay.
+
+The Raspberry Pi server expects the GPIO script at `/usr/local/bin/pufvault-reset-device.py`. Install and prepare it on the Pi with:
+
+```bash
+sudo apt install python3-gpiozero
+sudo chmod +x /usr/local/bin/pufvault-reset-device.py
+```
+
+Before using the web control, verify the script manually:
+
+```bash
+/usr/bin/python3 /usr/local/bin/pufvault-reset-device.py
+```
+
+Expected output:
+
+```text
+RESET_START
+RESET_DONE
+```
+
+> **Hardware warning:** The GPIO must drive a relay, MOSFET, or transistor rather than Arduino power directly. A true SRAM PUF cold-start requires physically cutting board power; toggling only the Arduino `RESET` pin is not sufficient.
 
 ---
 
@@ -193,6 +220,7 @@ Shows:
 - last response
 - errors
 - available ports
+- a **Reset device** control that calls authenticated `POST /api/reset_device`
 
 ---
 

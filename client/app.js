@@ -979,3 +979,46 @@ $('services').onclick =
       );
     }
   };
+
+$('resetDeviceBtn').onclick =
+  async () => {
+
+    const confirmed =
+      confirm('Reset the PUF device now?');
+
+    if (!confirmed) {
+      return;
+    }
+
+    const button = $('resetDeviceBtn');
+
+    button.disabled = true;
+    button.textContent = 'Resetting...';
+
+    try {
+
+      await request('/reset_device', {
+        method: 'POST'
+      });
+
+      log('Device reset triggered');
+      alert('Device reset triggered');
+
+      await sleep(4000);
+
+      await Promise.allSettled([
+        refreshConnectionStatus(),
+        refreshDiagnostics()
+      ]);
+
+    } catch (e) {
+
+      log(`Device reset failed: ${e.message}`);
+      alert(`Device reset failed: ${e.message}`);
+
+    } finally {
+
+      button.disabled = false;
+      button.textContent = 'Reset device';
+    }
+  };

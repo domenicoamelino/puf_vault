@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.pufvault.auth.AuthService;
 import com.pufvault.auth.PublicKeyStore;
 import com.pufvault.crypto.RsaEncryptionService;
+import com.pufvault.device.DeviceResetService;
 import com.pufvault.device.SerialDeviceService;
 
 @SpringBootTest
@@ -31,6 +32,9 @@ class ApiIntegrationTest {
 
     @MockBean
     private SerialDeviceService serialDeviceService;
+
+    @MockBean
+    private DeviceResetService deviceResetService;
 
     @MockBean
     private AuthService authService;
@@ -66,6 +70,19 @@ class ApiIntegrationTest {
                 .andExpect(result -> assertEquals(
                         "https://www.domenicoamelino.com",
                         result.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)));
+    }
+
+    @Test
+    void resetDeviceAuthenticatesAndReturnsScriptOutput() throws Exception {
+        var user = new AuthService.AuthenticatedUser("user001", "alice", 3, true);
+        when(authService.requireUser(eq("Bearer token"))).thenReturn(user);
+        when(deviceResetService.reset()).thenReturn("RESET_START\nRESET_DONE\n");
+
+        mockMvc.perform(post("/api/reset_device")
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.response").value("OK RESET_TRIGGERED"))
+                .andExpect(jsonPath("$.output").value("RESET_START\nRESET_DONE\n"));
     }
 
     @Test

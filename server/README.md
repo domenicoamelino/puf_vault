@@ -9,6 +9,7 @@ Spring Boot backend handling:
 - Device diagnostics
 - UART monitoring
 - Device reconnect logic
+- GPIO-backed device reset/power-cycle trigger
 - Live dashboard support
 
 ---
@@ -18,6 +19,7 @@ Spring Boot backend handling:
 - Java 17+
 - Maven
 - Arduino connected over USB
+- Raspberry Pi package: `python3-gpiozero`
 
 ---
 
@@ -80,7 +82,7 @@ From server directory:
 mvn spring-boot:run
 
 Server:
-http://localhost:8080
+http://localhost:9090
 
 ---
 
@@ -135,6 +137,59 @@ POST /api/device/reconnect
 POST /api/device/ping
 
 POST /api/device/wipe
+
+POST /api/reset_device
+
+Authenticated GPIO reset/power-cycle trigger. The server executes `/usr/bin/python3 /usr/local/bin/pufvault-reset-device.py`, captures combined stdout/stderr, and returns `OK RESET_TRIGGERED` or a controlled `NOK RESET_FAILED` response. The script is allowed up to 15 seconds to finish.
+
+---
+
+# Raspberry Pi Device Reset Setup
+
+The authenticated `POST /api/reset_device` endpoint runs this script on the Raspberry Pi:
+
+```text
+/usr/local/bin/pufvault-reset-device.py
+```
+
+Install the GPIO Zero dependency and copy the repository sample script into place:
+
+```bash
+sudo apt install python3-gpiozero
+sudo cp ../scripts/pufvault-reset-device.py /usr/local/bin/pufvault-reset-device.py
+sudo chmod +x /usr/local/bin/pufvault-reset-device.py
+```
+
+Before testing from the dashboard, run the script directly:
+
+```bash
+/usr/bin/python3 /usr/local/bin/pufvault-reset-device.py
+```
+
+Expected output:
+
+```text
+RESET_START
+RESET_DONE
+```
+
+Then test the authenticated API:
+
+```bash
+curl -X POST http://localhost:9090/api/reset_device \
+  -H "Authorization: <valid token>"
+```
+
+Expected response:
+
+```json
+{
+  "response": "OK RESET_TRIGGERED",
+  "output": "RESET_START\nRESET_DONE\n"
+}
+```
+
+> **Hardware warning:** A Raspberry Pi GPIO pin must drive external hardware such as a relay, MOSFET, or transistor. Never power the Arduino directly from the GPIO pin. Toggling only the Arduino `RESET` pin is insufficient for a true SRAM PUF cold-start; the external circuit must physically cut board power when a cold-start is required.
 
 ---
 
