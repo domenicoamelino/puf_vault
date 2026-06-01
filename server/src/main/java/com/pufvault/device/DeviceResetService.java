@@ -2,6 +2,8 @@ package com.pufvault.device;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -13,8 +15,11 @@ import org.springframework.stereotype.Service;
 public class DeviceResetService {
 
     private static final long RESET_TIMEOUT_SECONDS = 15;
+    private static final Path RESET_SCRIPT = Path.of("/usr/local/bin/pufvault-reset-device.py");
 
     public String reset() throws IOException {
+        requireInstalledResetScript(RESET_SCRIPT);
+
         Process process = new ProcessBuilder(
                 "/usr/bin/python3",
                 "/usr/local/bin/pufvault-reset-device.py"
@@ -52,6 +57,14 @@ public class DeviceResetService {
         } catch (ExecutionException | TimeoutException e) {
             process.destroyForcibly();
             throw new IOException("Could not capture reset script output", e);
+        }
+    }
+
+    static void requireInstalledResetScript(Path script) throws IOException {
+        if (!Files.isRegularFile(script) || !Files.isReadable(script)) {
+            throw new IOException("Reset script is not installed or readable on the server host at "
+                    + script
+                    + ". Install it on the Raspberry Pi server before using Reset device.");
         }
     }
 

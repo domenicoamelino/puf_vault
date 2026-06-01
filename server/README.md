@@ -146,13 +146,13 @@ Authenticated GPIO reset/power-cycle trigger. The server executes `/usr/bin/pyth
 
 # Raspberry Pi Device Reset Setup
 
-The authenticated `POST /api/reset_device` endpoint runs this script on the Raspberry Pi:
+The authenticated `POST /api/reset_device` endpoint runs this script on the Raspberry Pi host where the Java server process is running:
 
 ```text
 /usr/local/bin/pufvault-reset-device.py
 ```
 
-Install the GPIO Zero dependency and copy the repository sample script into place:
+Install the GPIO Zero dependency and copy the repository sample script into place on that Raspberry Pi server host:
 
 ```bash
 sudo apt install python3-gpiozero
@@ -160,7 +160,7 @@ sudo cp ../scripts/pufvault-reset-device.py /usr/local/bin/pufvault-reset-device
 sudo chmod +x /usr/local/bin/pufvault-reset-device.py
 ```
 
-Before testing from the dashboard, run the script directly:
+Before testing from the dashboard, SSH into the Raspberry Pi server host and run the script directly:
 
 ```bash
 /usr/bin/python3 /usr/local/bin/pufvault-reset-device.py
@@ -188,6 +188,8 @@ Expected response:
   "output": "RESET_START\nRESET_DONE\n"
 }
 ```
+
+If the API returns an error saying that `/usr/local/bin/pufvault-reset-device.py` is missing, the browser request successfully reached this Java server. Install the sample script on this server host and rerun the direct Python command before retrying the API.
 
 > **Hardware warning:** A Raspberry Pi GPIO pin must drive external hardware such as a relay, MOSFET, or transistor. Never power the Arduino directly from the GPIO pin. Toggling only the Arduino `RESET` pin is insufficient for a true SRAM PUF cold-start; the external circuit must physically cut board power when a cold-start is required.
 
