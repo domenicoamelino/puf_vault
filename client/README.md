@@ -111,7 +111,7 @@ Arduino disconnected (`deviceState` is `DISCONNECTED`)
 
 ## Reset Device Control
 
-The diagnostics tab provides a **Reset device** button. After confirmation, the browser sends authenticated `POST /api/reset_device`, disables the button while the operation is running, logs the result, and refreshes device health and diagnostics after a short delay.
+The post-login Vault controls provide a visible yellow **Reset device** button near **Refresh services**. After confirmation, the browser sends authenticated `POST /api/reset_device`, disables the button while the operation is running, logs the result, and refreshes device health and diagnostics after a short delay.
 
 The Raspberry Pi server expects the GPIO script at `/usr/local/bin/pufvault-reset-device.py`. Install and prepare it on the Pi with:
 
@@ -220,7 +220,6 @@ Shows:
 - last response
 - errors
 - available ports
-- a **Reset device** control that calls authenticated `POST /api/reset_device`
 
 ---
 

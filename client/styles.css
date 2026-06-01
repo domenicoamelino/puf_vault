@@ -49,6 +49,12 @@ button.danger {
   background: #7f1d1d;
 }
 
+button.warning {
+  background: #f59e0b;
+  color: #1f2937;
+  font-weight: bold;
+}
+
 button:hover:not(:disabled) {
   opacity: 0.9;
 }
