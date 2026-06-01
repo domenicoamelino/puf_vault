@@ -72,6 +72,7 @@ Capabilities:
 - Delete service
 - UART monitor
 - Device diagnostics
+- Authenticated device reset/power-cycle control
 - Connection indicators
 - Live communication animation
 
@@ -107,6 +108,37 @@ Red:
 Arduino disconnected (`deviceState` is `DISCONNECTED`)
 
 `GET /api/device/status` remains available as a manual/debug command, and diagnostics continue to display `currentPort`, `availablePorts`, `lastFailure`, `lastFailureAt`, `lastCommand`, and `lastResponse` if the Arduino is disconnected.
+
+## Reset Device Control
+
+The post-login Vault controls provide a visible yellow **Reset device** button near **Refresh services**. After confirmation, the browser sends authenticated `POST /api/reset_device`, disables the button while the operation is running, logs the result, and refreshes device health and diagnostics after a short delay.
+
+The Java backend executes the GPIO script on its own server host; the browser never runs the script locally. The Raspberry Pi server expects the script at `/usr/local/bin/pufvault-reset-device.py`. Install and prepare it on the same Pi that runs the Java server with:
+
+```bash
+sudo apt install python3-gpiozero
+sudo cp ../scripts/pufvault-reset-device.py /usr/local/bin/pufvault-reset-device.py
+sudo chmod +x /usr/local/bin/pufvault-reset-device.py
+```
+
+Before using the web control, SSH into the Raspberry Pi server host and verify the script manually:
+
+```bash
+/usr/bin/python3 /usr/local/bin/pufvault-reset-device.py
+```
+
+Expected output:
+
+```text
+RESET_START
+RESET_DONE
+```
+
+If the browser runs on a different computer than the Raspberry Pi, set the login form's **API endpoint** to the Pi server URL, for example `http://raspberrypi.local:9090/api`. In a browser, `localhost` always refers to the computer running the browser.
+
+If the UI reports that `/usr/local/bin/pufvault-reset-device.py` is missing, the request already reached the Java backend. SSH into the Raspberry Pi server host, copy the sample script into `/usr/local/bin`, and run the manual command above before retrying.
+
+> **Hardware warning:** The GPIO must drive a relay, MOSFET, or transistor rather than Arduino power directly. A true SRAM PUF cold-start requires physically cutting board power; toggling only the Arduino `RESET` pin is not sufficient.
 
 ---
 

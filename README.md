@@ -224,6 +224,22 @@ Example disconnected response:
 
 ---
 
+# Raspberry Pi GPIO Device Reset
+
+The post-login Vault controls include a visible yellow **Reset device** button backed by authenticated `POST /api/reset_device`. The Spring Boot server runs `/usr/bin/python3 /usr/local/bin/pufvault-reset-device.py`, captures the script output, and reports a controlled success or failure response. A deployable sample script is available at `scripts/pufvault-reset-device.py`.
+
+Install the Raspberry Pi dependency and deploy the sample script on the same Raspberry Pi host that runs the Java server:
+
+```bash
+sudo apt install python3-gpiozero
+sudo cp scripts/pufvault-reset-device.py /usr/local/bin/pufvault-reset-device.py
+sudo chmod +x /usr/local/bin/pufvault-reset-device.py
+```
+
+> **Hardware warning:** Use the GPIO only to drive an external relay, MOSFET, or transistor. Do not directly power the Arduino from a GPIO pin. For a true SRAM PUF cold-start, the circuit must physically cut board power instead of only toggling the Arduino `RESET` pin.
+
+---
+
 # UART Monitoring
 
 The dashboard includes a live UART transcript showing:
